@@ -93,7 +93,7 @@ pub async fn run(
                     None => Vec::new(),
                 };
                 hub.publish(TelemetrySnapshot {
-                    game_mode_active: true,
+                    game_mode_active: manager.is_enabled(),
                     managed_pids: manager.managed_pids(),
                     commit_percent: stats.commit_percent,
                     available_mb: stats.available_mb,
@@ -116,6 +116,11 @@ pub async fn run(
                         ).await;
                     }
                     Some(Command::SetFpsCap(cap)) => config.fps_cap = cap,
+                    Some(Command::SetGameModeEnabled(on)) => {
+                        manager.set_enabled(on, &mut |pid, e| {
+                            eprintln!("[flux-fps] game mode toggle error for pid {pid}: {e}")
+                        });
+                    }
                     Some(Command::Shutdown) | None => {
                         manager.reset(&mut |pid, e| {
                             eprintln!("[flux-fps] game mode reset error for pid {pid}: {e}")

@@ -15,6 +15,8 @@ pub enum Command {
     PurgeStandbyNow,
     /// Set the target FPS cap (None disables pacing).
     SetFpsCap(Option<f32>),
+    /// UI/tray quick toggle for automatic Game Mode management.
+    SetGameModeEnabled(bool),
     /// Shut the engine down gracefully.
     Shutdown,
 }

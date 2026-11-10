@@ -12,6 +12,9 @@ pub struct GameModeManager {
     managed: HashMap<u32, String>,
     /// CPU set ids used for background isolation (E-cores).
     background_cpu_set_ids: Vec<u32>,
+    /// Quick toggle (UI / tray): when off, ticks are skipped and existing
+    /// isolation is torn down.
+    enabled: bool,
 }
 
 impl GameModeManager {
@@ -27,7 +30,21 @@ impl GameModeManager {
         Ok(Self {
             managed: HashMap::new(),
             background_cpu_set_ids,
+            enabled: true,
         })
+    }
+
+    /// Whether automatic Game Mode management is currently on.
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    /// UI quick toggle. Turning off tears down all existing isolation.
+    pub fn set_enabled(&mut self, on: bool, on_error: &mut dyn FnMut(u32, &EngineError)) {
+        if self.enabled && !on {
+            self.reset(on_error);
+        }
+        self.enabled = on;
     }
 
     pub fn managed_pids(&self) -> Vec<u32> {
@@ -42,6 +59,9 @@ impl GameModeManager {
         candidates: &[ProcessEntry],
         on_error: &mut dyn FnMut(u32, &EngineError),
     ) {
+        if !self.enabled {
+            return;
+        }
         let current: HashMap<u32, String> = candidates
             .iter()
             .map(|p| (p.pid, p.exe_name.clone()))

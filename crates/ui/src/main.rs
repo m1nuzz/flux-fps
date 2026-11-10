@@ -16,6 +16,8 @@ use windows_reactor::{
     TextBlock, View,
 };
 
+mod chart;
+
 /// Engine-side handles handed to the root component as its Input.
 ///
 /// `run_component` requires `Input: Clone + PartialEq`; the channels are
@@ -40,6 +42,10 @@ pub enum Message {
     Telemetry(TelemetrySnapshot),
     /// User asked for an immediate standby purge.
     PurgeStandbyNow,
+    /// User toggled Game Mode on.
+    GameModeOn,
+    /// User toggled Game Mode off.
+    GameModeOff,
 }
 
 pub struct FluxFpsApp {
@@ -73,6 +79,12 @@ impl Component for FluxFpsApp {
                 // Bounded channel: UI must use try_send only, never block.
                 let _ = self.commands.try_send(Command::PurgeStandbyNow);
             }
+            Message::GameModeOn => {
+                let _ = self.commands.try_send(Command::SetGameModeEnabled(true));
+            }
+            Message::GameModeOff => {
+                let _ = self.commands.try_send(Command::SetGameModeEnabled(false));
+            }
         }
     }
 
@@ -94,10 +106,22 @@ impl Component for FluxFpsApp {
                 self.latest.managed_pids.len()
             )),
             TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
+            chart::dpc_chart(&self.latest),
             TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),
             Button::new()
                 .on_click(context.sender().message(Message::PurgeStandbyNow))
                 .content("Purge standby list now"),
+            Button::new()
+                .on_click(context.sender().message(if self.latest.game_mode_active {
+                    Message::GameModeOff
+                } else {
+                    Message::GameModeOn
+                }))
+                .content(if self.latest.game_mode_active {
+                    "Disable Game Mode"
+                } else {
+                    "Enable Game Mode"
+                }),
         ))
     }
 }
