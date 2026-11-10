@@ -83,25 +83,22 @@ impl Component for FluxFpsApp {
             .iter()
             .copied()
             .fold(0.0f32, f32::max);
-        StackPanel::new()
-            .spacing(8.0)
-            .children((
-                TextBlock::new().text(format!("flux-fps v{}", common::VERSION)),
-                TextBlock::new().text(format!(
-                    "Memory: commit {:.0}%, available {} MB",
-                    self.latest.commit_percent, self.latest.available_mb
-                )),
-                TextBlock::new().text(format!(
-                    "Game Mode: {} background processes managed",
-                    self.latest.managed_pids.len()
-                )),
-                TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
-                TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),
-                Button::new()
-                    .on_click(context.sender().message(Message::PurgeStandbyNow))
-                    .content("Purge standby list now"),
-            ))
-            .into()
+        StackPanel::new().spacing(8.0).children((
+            TextBlock::new().text(format!("flux-fps v{}", common::VERSION)),
+            TextBlock::new().text(format!(
+                "Memory: commit {:.0}%, available {} MB",
+                self.latest.commit_percent, self.latest.available_mb
+            )),
+            TextBlock::new().text(format!(
+                "Game Mode: {} background processes managed",
+                self.latest.managed_pids.len()
+            )),
+            TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
+            TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),
+            Button::new()
+                .on_click(context.sender().message(Message::PurgeStandbyNow))
+                .content("Purge standby list now"),
+        ))
     }
 }
 
