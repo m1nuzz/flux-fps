@@ -13,7 +13,7 @@ use windows_sys::Win32::System::SystemInformation::{
 use windows_sys::Win32::System::Threading::{
     GetCurrentProcess, OpenProcess, ProcessMemoryPriority, ProcessPowerThrottling,
     SetProcessDefaultCpuSets, SetProcessInformation, PROCESS_INFORMATION_CLASS,
-    PROCESS_POWER_THROTTLING_STATE, PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESS_POWER_THROTTLING_STATE, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_SET_INFORMATION,
     PROCESS_SET_LIMITED_INFORMATION,
 };
 
@@ -145,10 +145,15 @@ pub fn remove_background_isolation(pid: u32) -> Result<(), EngineError> {
 }
 
 fn open_process_limited(pid: u32) -> Result<ProcessHandle, EngineError> {
+    // PROCESS_SET_INFORMATION is required for ProcessMemoryPriority /
+    // ProcessPowerThrottling classes; PROCESS_SET_LIMITED_INFORMATION alone
+    // only suffices for SetProcessDefaultCpuSets.
     // SAFETY: constants and arguments match the documented OpenProcess ABI.
     let handle = unsafe {
         OpenProcess(
-            PROCESS_SET_LIMITED_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION,
+            PROCESS_SET_LIMITED_INFORMATION
+                | PROCESS_SET_INFORMATION
+                | PROCESS_QUERY_LIMITED_INFORMATION,
             0,
             pid,
         )
