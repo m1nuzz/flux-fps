@@ -133,9 +133,9 @@ mod tests {
         // Exact non-integer mode rates survive (no 240 rounding of 239.996).
         let hz = refresh_hz(239_996, 1_000).expect("valid fraction");
         assert!((hz - 239.996).abs() < 1e-3, "got {hz}");
-        // Rational approximations used by some drivers: 165.000976...
-        let hz = refresh_hz(337_865, 2_048).expect("valid fraction");
-        assert!((hz - 165.0).abs() < 0.01, "got {hz}");
+        // NTSC-family rate used by many drivers: 60000/1001 = 59.9401...
+        let hz = refresh_hz(60_000, 1_001).expect("valid fraction");
+        assert!((hz - 59.9401).abs() < 1e-3, "got {hz}");
     }
 
     #[test]

@@ -17,6 +17,7 @@ use windows_reactor::{
 };
 
 mod chart;
+mod tray;
 
 /// Engine-side handles handed to the root component as its Input.
 ///
@@ -149,6 +150,9 @@ fn main() {
     }));
 
     let (commands, command_rx) = mpsc::channel::<Command>(16);
+    // Tray icon on its own message-only window thread; shares the command
+    // channel (try_send only, never blocks). Lives until process exit.
+    let _tray_handle = tray::spawn(commands.clone());
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<watch::Receiver<TelemetrySnapshot>>();
 
     // The Core Engine runs on a dedicated thread with its own tokio runtime.
