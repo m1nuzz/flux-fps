@@ -339,10 +339,13 @@ impl Component for FluxFpsApp {
                 self.send(Command::SetPacerEnabled(on));
             }
             Message::AdjustPacerSafety(delta) => {
-                let config = &mut self.settings.config;
-                let quantized = ((config.pacer_safety_factor + delta) * 20.0).round() / 20.0;
-                config.pacer_safety_factor = quantized.clamp(1.0, 2.0);
-                self.send(Command::SetPacerSafetyFactor(config.pacer_safety_factor));
+                let factor = {
+                    let config = &mut self.settings.config;
+                    let quantized = ((config.pacer_safety_factor + delta) * 20.0).round() / 20.0;
+                    config.pacer_safety_factor = quantized.clamp(1.0, 2.0);
+                    config.pacer_safety_factor
+                };
+                self.send(Command::SetPacerSafetyFactor(factor));
             }
             Message::SetAutoStart(on) => {
                 self.settings.config.auto_start = on;
