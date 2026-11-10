@@ -143,6 +143,11 @@ fn spawn_telemetry_poll(
 fn main() {
     println!("flux-fps v{} starting", common::VERSION);
 
+    let config = Config::load_or_default(&Config::default_path().unwrap_or_else(|| {
+        eprintln!("[flux-fps] APPDATA unavailable; using local config.toml");
+        "config.toml".into()
+    }));
+
     let (commands, command_rx) = mpsc::channel::<Command>(16);
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<watch::Receiver<TelemetrySnapshot>>();
 
@@ -152,7 +157,7 @@ fn main() {
         .spawn(move || {
             let runtime = tokio::runtime::Runtime::new().expect("tokio runtime");
             runtime.block_on(async move {
-                match engine::runtime::run(Config::default(), command_rx).await {
+                match engine::runtime::run(config, command_rx).await {
                     Ok(telemetry) => {
                         let _ = ready_tx.send(telemetry);
                         // Keep this thread alive while the engine runs; the
