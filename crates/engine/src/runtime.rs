@@ -28,6 +28,13 @@ pub async fn run(
     let (hub, telemetry_rx) = TelemetryHub::new();
     let mut manager = GameModeManager::new()?;
 
+    // Exact refresh rate of the fastest active sink (Phase 3.1): diagnostic
+    // log now; the pacer consumes it once frame-time sources are wired in.
+    match crate::refresh::max_active_refresh_hz() {
+        Ok(hz) => eprintln!("[flux-fps] display refresh: {hz:.3} Hz"),
+        Err(e) => eprintln!("[flux-fps] refresh detection failed: {e}"),
+    }
+
     // ETW DPC monitor: best-effort, admin-only. The monitor handle must stay
     // alive for the whole runtime, otherwise its Drop stops the session.
     let mut dpc_monitor: Option<etw_dpc::DpcMonitor> = None;

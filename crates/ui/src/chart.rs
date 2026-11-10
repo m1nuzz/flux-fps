@@ -7,8 +7,7 @@
 
 use common::TelemetrySnapshot;
 use windows_reactor::{
-    Brush, Canvas, CanvasChildExt, ChildrenControl, Color, LayoutControl, Rectangle, TextBlock,
-    View,
+    Brush, Canvas, CanvasChildExt, Color, KeyedView, LayoutControl, Rectangle, TextBlock, View,
 };
 
 const CHART_WIDTH: f64 = 480.0;
@@ -37,24 +36,27 @@ pub fn dpc_chart(snapshot: &TelemetrySnapshot) -> View {
     let cores = snapshot.dpc_max_us.len();
     let bar_width = (CHART_WIDTH / cores as f64).floor().max(2.0);
 
-    let bars: Vec<View> = snapshot
+    // Dynamic child count: `children()` only accepts statically shaped
+    // tuples/arrays, so per-core bars go through `keyed_children` (stable
+    // per-core keys keep reconciliation cheap at 30 Hz).
+    let bars: Vec<KeyedView> = snapshot
         .dpc_max_us
         .iter()
         .enumerate()
         .map(|(core, &us)| {
             let h = ((us / SCALE_US).min(1.0) as f64) * CHART_HEIGHT;
-            Rectangle::new()
+            let bar = Rectangle::new()
                 .fill(Brush::from(bar_color(us)))
                 .width((bar_width - 1.0).max(1.0))
                 .height(h.max(1.0))
                 .canvas_left(core as f64 * bar_width)
-                .canvas_top(CHART_HEIGHT - h.max(1.0))
-                .into()
+                .canvas_top(CHART_HEIGHT - h.max(1.0));
+            KeyedView::new(core as u32, bar)
         })
         .collect();
 
     Canvas::new()
         .width(CHART_WIDTH)
         .height(CHART_HEIGHT)
-        .children(bars)
+        .keyed_children(bars)
 }
