@@ -335,7 +335,13 @@ unsafe extern "system" fn on_event(record: *mut EVENT_RECORD) {
         return;
     }
     let record = &*record;
-    if record.EventHeader.ProviderId != PerfInfoGuid {
+    // windows_sys GUID does not implement PartialEq; compare field-wise.
+    let guid = &record.EventHeader.ProviderId;
+    if guid.data1 != PerfInfoGuid.data1
+        || guid.data2 != PerfInfoGuid.data2
+        || guid.data3 != PerfInfoGuid.data3
+        || guid.data4 != PerfInfoGuid.data4
+    {
         return;
     }
     let opcode = record.EventHeader.EventDescriptor.Opcode;
