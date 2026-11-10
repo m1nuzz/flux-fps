@@ -6,9 +6,12 @@
 
 pub mod cpu_isolation;
 pub mod error;
-pub mod memory_purge;
-pub mod telemetry;
-
 pub mod etw_dpc;
+pub mod game_mode;
+pub mod memory;
+pub mod memory_purge;
+pub mod process;
+pub mod runtime;
+pub mod telemetry;
 
 pub use error::EngineError;
