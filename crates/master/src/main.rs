@@ -7,5 +7,8 @@
 //! cargo feature - never in the resident binary.
 
 fn main() {
-    println!("flux-fps-master v{} (calibration suite placeholder)", common::VERSION);
+    println!(
+        "flux-fps-master v{} (calibration suite placeholder)",
+        common::VERSION
+    );
 }

@@ -4,5 +4,8 @@
 //! policy, ReservedCpuSets, power settings) - see RESEARCH_FINDINGS.md 9.4.
 
 fn main() {
-    println!("flux-fps-setup v{} (portable baseline wizard placeholder)", common::VERSION);
+    println!(
+        "flux-fps-setup v{} (portable baseline wizard placeholder)",
+        common::VERSION
+    );
 }

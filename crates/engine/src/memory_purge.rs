@@ -68,26 +68,25 @@ fn enable_profile_single_process_privilege() -> Result<(), EngineError> {
     // SAFETY: GetCurrentProcess returns a pseudo-handle; OpenProcessToken
     // writes an owned handle into `token` (closed by TokenHandle).
     if unsafe {
-        OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &mut token)
+        OpenProcessToken(
+            GetCurrentProcess(),
+            TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY,
+            &mut token,
+        )
     } == 0
     {
         return Err(EngineError::win32("OpenProcessToken"));
     }
     let _token = TokenHandle(token);
 
-    let name: Vec<u16> = "SeProfileSingleProcessPrivilege\0"
-        .encode_utf16()
-        .collect();
+    let name: Vec<u16> = "SeProfileSingleProcessPrivilege\0".encode_utf16().collect();
     let mut luid = LUID_AND_ATTRIBUTES {
         // SAFETY: LUID is a plain POD; zeroing it is a valid initialization.
         Luid: unsafe { mem::zeroed() },
         Attributes: SE_PRIVILEGE_ENABLED,
     };
     // SAFETY: name is a NUL-terminated wide string; luid is a valid out param.
-    if unsafe {
-        LookupPrivilegeValueW(std::ptr::null(), name.as_ptr(), &mut luid.Luid)
-    } == 0
-    {
+    if unsafe { LookupPrivilegeValueW(std::ptr::null(), name.as_ptr(), &mut luid.Luid) } == 0 {
         return Err(EngineError::win32("LookupPrivilegeValueW"));
     }
 

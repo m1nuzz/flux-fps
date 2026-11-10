@@ -60,15 +60,7 @@ pub fn enumerate_cpu_sets() -> Result<Vec<CoreDescriptor>, EngineError> {
     let mut needed: u32 = 0;
 
     // SAFETY: NULL buffer is documented: call returns required size.
-    if unsafe {
-        GetSystemCpuSetInformation(
-            std::ptr::null_mut(),
-            0,
-            &mut needed,
-            process,
-            0,
-        )
-    } == 0
+    if unsafe { GetSystemCpuSetInformation(std::ptr::null_mut(), 0, &mut needed, process, 0) } == 0
         && needed == 0
     {
         return Err(EngineError::win32("GetSystemCpuSetInformation(size)"));
@@ -95,9 +87,8 @@ pub fn enumerate_cpu_sets() -> Result<Vec<CoreDescriptor>, EngineError> {
     while offset + mem::size_of::<SYSTEM_CPU_SET_INFORMATION>() <= returned as usize {
         // SAFETY: offset walks the buffer by each record's own Size field,
         // which guarantees alignment to the record start.
-        let record = unsafe {
-            &*(buffer.as_ptr().add(offset) as *const SYSTEM_CPU_SET_INFORMATION)
-        };
+        let record =
+            unsafe { &*(buffer.as_ptr().add(offset) as *const SYSTEM_CPU_SET_INFORMATION) };
         if record.Size == 0 {
             break;
         }
@@ -200,7 +191,11 @@ fn set_power_throttling(handle: HANDLE, enable: bool) -> Result<(), EngineError>
         Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
         // OFF: ControlMask=0x1, StateMask=0x0 (a zero ControlMask is a no-op).
         ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_STATE,
-        StateMask: if enable { PROCESS_POWER_THROTTLING_EXECUTION_STATE } else { 0 },
+        StateMask: if enable {
+            PROCESS_POWER_THROTTLING_EXECUTION_STATE
+        } else {
+            0
+        },
     };
     // SAFETY: class PROCESS_POWER_THROTTLING expects PROCESS_POWER_THROTTLING_STATE.
     if unsafe {

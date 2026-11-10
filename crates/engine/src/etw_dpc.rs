@@ -26,10 +26,10 @@ use std::time::Duration;
 use tokio::sync::watch;
 use windows_sys::Win32::Foundation::ERROR_ALREADY_EXISTS;
 use windows_sys::Win32::System::Diagnostics::Etw::{
-    CloseTrace, ControlTraceW, OpenTraceW, ProcessTrace, StartTraceW, EVENT_RECORD,
-    EVENT_TRACE_CONTROL_STOP, EVENT_TRACE_FLAG_DPC, EVENT_TRACE_FLAG_INTERRUPT,
-    EVENT_TRACE_LOGFILEW, EVENT_TRACE_PROPERTIES, EVENT_TRACE_REAL_TIME_MODE, PerfInfoGuid,
-    SystemTraceControlGuid, CONTROLTRACE_HANDLE, PROCESSTRACE_HANDLE, WNODE_FLAG_TRACED_GUID,
+    CloseTrace, ControlTraceW, OpenTraceW, PerfInfoGuid, ProcessTrace, StartTraceW,
+    SystemTraceControlGuid, CONTROLTRACE_HANDLE, EVENT_RECORD, EVENT_TRACE_CONTROL_STOP,
+    EVENT_TRACE_FLAG_DPC, EVENT_TRACE_FLAG_INTERRUPT, EVENT_TRACE_LOGFILEW, EVENT_TRACE_PROPERTIES,
+    EVENT_TRACE_REAL_TIME_MODE, PROCESSTRACE_HANDLE, WNODE_FLAG_TRACED_GUID,
 };
 
 /// Classic event type 27 = DPC completion.
@@ -57,7 +57,10 @@ pub struct DpcMonitorConfig {
 
 impl Default for DpcMonitorConfig {
     fn default() -> Self {
-        Self { window_secs: 2.0, publish_interval_ms: 200 }
+        Self {
+            window_secs: 2.0,
+            publish_interval_ms: 200,
+        }
     }
 }
 
@@ -80,7 +83,8 @@ impl Shared {
         if core >= MAX_CORES {
             return;
         }
-        self.latest_timestamp_ns100.fetch_max(timestamp, Ordering::Relaxed);
+        self.latest_timestamp_ns100
+            .fetch_max(timestamp, Ordering::Relaxed);
         if let Ok(mut rings) = self.rings.lock() {
             let ring = &mut rings[core];
             ring.push_back((timestamp, duration_us));
@@ -214,7 +218,12 @@ pub fn start(
         .map_err(|_| EngineError::InvalidState("failed to spawn publisher thread"))?;
 
     Ok((
-        DpcMonitor { stop, shared, consumer: Some(consumer), publisher: Some(publisher) },
+        DpcMonitor {
+            stop,
+            shared,
+            consumer: Some(consumer),
+            publisher: Some(publisher),
+        },
         rx,
     ))
 }
