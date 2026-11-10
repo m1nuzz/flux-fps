@@ -1,0 +1,12 @@
+[package]
+name = "engine"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+common = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+windows-sys = { workspace = true }

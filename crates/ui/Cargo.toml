@@ -1,0 +1,15 @@
+[package]
+name = "flux-fps"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "flux-fps"
+path = "src/main.rs"
+
+[dependencies]
+common = { workspace = true }
+engine = { workspace = true }
+tokio = { workspace = true }

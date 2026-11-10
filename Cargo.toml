@@ -1,0 +1,33 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/common",
+    "crates/engine",
+    "crates/ui",
+    "crates/setup",
+    "crates/master",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["m1nuzz <109736024+m1nuzz@users.noreply.github.com>"]
+license = "MIT"
+
+[workspace.dependencies]
+common = { path = "crates/common" }
+engine = { path = "crates/engine" }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+windows-sys = { version = "0.59", features = [
+    "Wdk_System_SystemServices",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+] }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

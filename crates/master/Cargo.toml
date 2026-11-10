@@ -1,0 +1,14 @@
+[package]
+name = "flux-fps-master"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "flux-fps-master"
+path = "src/main.rs"
+
+[dependencies]
+common = { workspace = true }
+engine = { workspace = true }
