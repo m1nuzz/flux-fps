@@ -7,7 +7,8 @@
 
 use common::{CoreInfo, TelemetrySnapshot};
 use windows_reactor::{
-    Brush, Canvas, CanvasChildExt, Color, KeyedView, LayoutControl, Rectangle, TextBlock, View,
+    Brush, Canvas, CanvasChildExt, ChildrenControl, Color, KeyedView, LayoutControl, Rectangle,
+    TextBlock, View,
 };
 
 const CHART_WIDTH: f64 = 480.0;
