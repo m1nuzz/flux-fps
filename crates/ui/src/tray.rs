@@ -9,7 +9,7 @@
 
 use common::Command;
 use std::sync::atomic::{AtomicIsize, Ordering};
-use std::sync::mpsc::Sender;
+use tokio::sync::mpsc::Sender;
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows_sys::Win32::UI::Shell::{
     Shell_NotifyIconW, NIF_ICON, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NOTIFYICONDATAW,
