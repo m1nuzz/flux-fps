@@ -43,9 +43,9 @@ pub enum Message {
 }
 
 pub struct FluxFpsApp {
-    commands: mpsc::Sender<Command>,
+    commands: std::sync::Arc<mpsc::Sender<Command>>,
     /// Engine-side watch receiver used to re-arm each telemetry poll.
-    telemetry: watch::Receiver<TelemetrySnapshot>,
+    telemetry: std::sync::Arc<watch::Receiver<TelemetrySnapshot>>,
     latest: TelemetrySnapshot,
 }
 
