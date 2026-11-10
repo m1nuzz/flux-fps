@@ -30,7 +30,7 @@ use windows_sys::Win32::System::Diagnostics::Etw::{
     EVENT_TRACE_REAL_TIME_MODE, PROCESSTRACE_HANDLE, PROCESS_TRACE_MODE_EVENT_RECORD,
     PROCESS_TRACE_MODE_REAL_TIME, TRACE_LEVEL_INFORMATION, WNODE_FLAG_TRACED_GUID,
 };
-use windows_sys::Win32::System::SystemInformation::QueryPerformanceFrequency;
+use windows_sys::Win32::System::Performance::QueryPerformanceFrequency;
 
 /// Microsoft-Windows-DxgKrnl provider GUID.
 const DXGKRNL_GUID: GUID = GUID::from_u128(0x802ec45a_1e99_4b83_9966_90a1ed4092e4);
