@@ -42,7 +42,8 @@ impl TrayHandle {
             // SAFETY: hwnd was created and lives on the tray thread; posting
             // is safe from any thread.
             unsafe {
-                PostMessageWTray(hwnd as HWND, WM_TRAY_QUIT);
+                use windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW;
+                PostMessageW(hwnd as HWND, WM_TRAY_QUIT, 0, 0);
             }
         }
     }
@@ -75,14 +76,6 @@ unsafe extern "system" fn wnd_proc(
 ) -> LRESULT {
     // SAFETY: standard window procedure contract.
     unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
-}
-
-/// PostMessageW wrapper avoiding unused-parameter lint noise in shutdown().
-unsafe fn PostMessageWTray(hwnd: HWND, msg: u32) {
-    // SAFETY: valid hwnd owned by the tray thread.
-    unsafe {
-        windows_sys::Win32::UI::WindowsAndMessaging::PostMessageW(hwnd, msg, 0, 0);
-    }
 }
 
 fn tray_thread(commands: Sender<Command>, hwnd_slot: std::sync::Arc<AtomicIsize>) {

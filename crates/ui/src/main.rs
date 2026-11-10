@@ -151,8 +151,8 @@ fn main() {
 
     let (commands, command_rx) = mpsc::channel::<Command>(16);
     // Tray icon on its own message-only window thread; shares the command
-    // channel (try_send only, never blocks). Lives until process exit.
-    let _tray_handle = tray::spawn(commands.clone());
+    // channel (try_send only, never blocks).
+    let tray_handle = tray::spawn(commands.clone());
     let (ready_tx, ready_rx) = std::sync::mpsc::channel::<watch::Receiver<TelemetrySnapshot>>();
 
     // The Core Engine runs on a dedicated thread with its own tokio runtime.
@@ -179,9 +179,13 @@ fn main() {
 
     let telemetry = ready_rx.recv().expect("engine telemetry channel");
     // Blocks on the WinUI message loop until the window closes.
-    App::run_component::<FluxFpsApp>(EngineHandles {
+    let result = App::run_component::<FluxFpsApp>(EngineHandles {
         commands: std::sync::Arc::new(commands),
         telemetry: std::sync::Arc::new(telemetry),
-    })
-    .expect("reactor app run");
+    });
+
+    // Graceful teardown: remove the tray icon, then let the engine thread
+    // wind down with the process.
+    tray_handle.shutdown();
+    result.expect("reactor app run");
 }
