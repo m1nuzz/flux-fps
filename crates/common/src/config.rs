@@ -16,6 +16,12 @@ pub struct Config {
     pub fps_cap: Option<f32>,
     /// Target refresh rate hint; the master tool refines this per display.
     pub refresh_rate_hint_hz: f32,
+    /// Enable the adaptive FPS limit advisor (advisory only, no injection).
+    pub pacer_enabled: bool,
+    /// Safety factor applied to p99 frametime when deriving a limit.
+    pub pacer_safety_factor: f32,
+    /// Lower bound for any suggested FPS limit.
+    pub pacer_min_fps: u32,
 }
 
 impl Default for Config {
@@ -26,6 +32,9 @@ impl Default for Config {
             purge_cooldown_secs: 60,
             fps_cap: None,
             refresh_rate_hint_hz: 240.0,
+            pacer_enabled: true,
+            pacer_safety_factor: 1.10,
+            pacer_min_fps: 30,
         }
     }
 }

@@ -5,7 +5,7 @@
 //! scale: green < 100 us (healthy), amber < 250 us (watch), red >= 250 us
 //! (audio/glitch territory).
 
-use common::{CoreInfo, FrametimeStats, TelemetrySnapshot};
+use common::{CoreInfo, FrametimeStats, PacerAdvice, TelemetrySnapshot};
 use windows_reactor::{
     Brush, Canvas, CanvasChildExt, ChildrenControl, Color, KeyedView, LayoutControl, Rectangle,
     TextBlock, View,
@@ -73,6 +73,22 @@ pub fn frametime_text(stats: &FrametimeStats) -> String {
             stats.samples
         ),
         _ => "Frame time: waiting for DxgKrnl Present events...".to_string(),
+    }
+}
+
+/// Compact readout of the adaptive pacer recommendation.
+pub fn pacer_text(advice: &PacerAdvice) -> String {
+    match advice.suggested_fps {
+        Some(fps) => format!(
+            "Pacer advice: {fps:.1} FPS (target {:.1}, {}, {:.0} fps observed)",
+            advice.sustainable_fps.unwrap_or(fps),
+            advice.reason,
+            advice.observed_fps
+        ),
+        None => format!(
+            "Pacer advice: {} ({} stable windows)",
+            advice.reason, advice.stable_windows
+        ),
     }
 }
 

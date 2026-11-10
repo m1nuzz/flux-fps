@@ -11,8 +11,9 @@ use crate::etw_present;
 use crate::game_mode::GameModeManager;
 use crate::memory;
 use crate::memory_purge;
+use crate::pacing_advisor::{AdvisorLimits, AdvisorParams, LimitAdvisor};
 use crate::telemetry::TelemetryHub;
-use common::{Command, Config, FrametimeStats, TelemetrySnapshot};
+use common::{Command, Config, FrametimeStats, PacerAdvice, TelemetrySnapshot};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch};
@@ -29,12 +30,20 @@ pub async fn run(
     let (hub, telemetry_rx) = TelemetryHub::new();
     let mut manager = GameModeManager::new()?;
 
-    // Exact refresh rate of the fastest active sink (Phase 3.1): diagnostic
-    // log now; the pacer consumes it once frame-time sources are wired in.
-    match crate::refresh::max_active_refresh_hz() {
-        Ok(hz) => eprintln!("[flux-fps] display refresh: {hz:.3} Hz"),
-        Err(e) => eprintln!("[flux-fps] refresh detection failed: {e}"),
-    }
+    // Exact refresh rate of the fastest active sink (Phase 3.1). The advisor
+    // uses it as the ceiling; the configured hint is the fallback.
+    let max_refresh_hz = match crate::refresh::max_active_refresh_hz() {
+        Ok(hz) => {
+            eprintln!("[flux-fps] display refresh: {hz:.3} Hz");
+            hz
+        }
+        Err(e) => {
+            eprintln!("[flux-fps] refresh detection failed: {e}; using configured hint");
+            config.refresh_rate_hint_hz
+        }
+    };
+    let mut advisor = LimitAdvisor::new(Instant::now());
+    let mut last_advice: Option<f32> = None;
 
     // ETW DPC monitor: best-effort, admin-only. The monitor handle must stay
     // alive for the whole runtime, otherwise its Drop stops the session.
@@ -130,6 +139,29 @@ pub async fn run(
                     Some(rx) => *rx.borrow(),
                     None => FrametimeStats::default(),
                 };
+                let pacer = if config.pacer_enabled {
+                    advisor.update(
+                        &frametimes,
+                        &AdvisorParams::from_config(&config),
+                        &AdvisorLimits {
+                            max_fps: max_refresh_hz,
+                            user_cap: config.fps_cap,
+                        },
+                        Instant::now(),
+                    )
+                } else {
+                    PacerAdvice::default()
+                };
+                if pacer.suggested_fps != last_advice {
+                    if let Some(fps) = pacer.suggested_fps {
+                        eprintln!(
+                            "[flux-fps] pacer advice: {fps:.1} FPS (interval {} * 100 ns, {})",
+                            crate::pacing::frame_interval_100ns(fps, 1),
+                            pacer.reason
+                        );
+                    }
+                    last_advice = pacer.suggested_fps;
+                }
                 hub.publish(TelemetrySnapshot {
                     game_mode_active: manager.is_enabled(),
                     managed_pids: manager.managed_pids(),
@@ -139,6 +171,7 @@ pub async fn run(
                     fps_cap: config.fps_cap,
                     cpu_cores: cpu_cores.clone(),
                     frametimes,
+                    pacer,
                 });
             }
             command = commands.recv() => {
@@ -156,6 +189,10 @@ pub async fn run(
                         ).await;
                     }
                     Some(Command::SetFpsCap(cap)) => config.fps_cap = cap,
+                    Some(Command::SetPacerEnabled(on)) => config.pacer_enabled = on,
+                    Some(Command::SetPacerSafetyFactor(factor)) => {
+                        config.pacer_safety_factor = factor.clamp(1.0, 2.0);
+                    }
                     Some(Command::SetGameModeEnabled(on)) => {
                         manager.set_enabled(on, &mut |pid, e| {
                             eprintln!("[flux-fps] game mode toggle error for pid {pid}: {e}")

@@ -12,6 +12,7 @@ pub mod game_mode;
 pub mod memory;
 pub mod memory_purge;
 pub mod pacing;
+pub mod pacing_advisor;
 pub mod process;
 pub mod refresh;
 pub mod runtime;

@@ -111,6 +111,7 @@ impl Component for FluxFpsApp {
             TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
             chart::dpc_chart(&self.latest),
             TextBlock::new().text(chart::frametime_text(&self.latest.frametimes)),
+            TextBlock::new().text(chart::pacer_text(&self.latest.pacer)),
             TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),
             Button::new()
                 .on_click(context.sender().message(Message::PurgeStandbyNow))

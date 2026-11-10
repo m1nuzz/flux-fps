@@ -502,10 +502,11 @@ mod tests {
         let props = unsafe { &*(buffer.as_ptr() as *const EVENT_TRACE_PROPERTIES) };
         assert_eq!(props.LoggerNameOffset as usize, offset);
         assert_eq!(props.Wnode.BufferSize as usize, buffer.len());
-        let name: Vec<u16> = buffer[offset..]
-            .chunks_exact(2)
-            .map(|c| u16::from_le_bytes([c[0], c[1]]))
-            .take_while(|&c| c != 0)
+        let name: Vec<u16> = (0..SESSION_NAME.len())
+            .map(|i| {
+                let at = offset + i * 2;
+                u16::from_le_bytes([buffer[at], buffer[at + 1]])
+            })
             .collect();
         assert_eq!(String::from_utf16_lossy(&name), SESSION_NAME);
     }

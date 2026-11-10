@@ -17,6 +17,10 @@ pub enum Command {
     SetFpsCap(Option<f32>),
     /// UI/tray quick toggle for automatic Game Mode management.
     SetGameModeEnabled(bool),
+    /// Enable/disable the adaptive FPS limit advisor.
+    SetPacerEnabled(bool),
+    /// Pacer aggressiveness: safety factor applied to p99 frametime.
+    SetPacerSafetyFactor(f32),
     /// Shut the engine down gracefully.
     Shutdown,
 }

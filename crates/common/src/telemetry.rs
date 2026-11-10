@@ -27,6 +27,25 @@ pub struct FrametimeStats {
     pub samples: usize,
 }
 
+/// Advisory FPS limit produced by the adaptive pacer (Phase 3.4).
+///
+/// The resident app never paces a game's frames itself: this is a
+/// recommendation for the game's own limiter / driver overlay. Changes are
+/// gradient-limited to at most 1 FPS per second to avoid micro-stutter.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct PacerAdvice {
+    /// Gradient-limited limit currently recommended (None = not enough data).
+    pub suggested_fps: Option<f32>,
+    /// Stable target derived from the p99 frametime, before gradient limiting.
+    pub sustainable_fps: Option<f32>,
+    /// Observed Present rate, fps.
+    pub observed_fps: f32,
+    /// Consecutive windows for which the target has stayed stable.
+    pub stable_windows: u32,
+    /// Short diagnostic reason (static string, safe to log).
+    pub reason: &'static str,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct TelemetrySnapshot {
     pub game_mode_active: bool,
@@ -43,4 +62,6 @@ pub struct TelemetrySnapshot {
     pub cpu_cores: Vec<CoreInfo>,
     /// Latest frametime aggregate from the DxgKrnl Present session.
     pub frametimes: FrametimeStats,
+    /// Latest adaptive FPS limit recommendation.
+    pub pacer: PacerAdvice,
 }
