@@ -94,7 +94,7 @@ pub fn cpu_map(cores: &[CoreInfo]) -> View {
         })
         .collect();
 
-    let rows = (cores.len() + CELLS_PER_ROW - 1) / CELLS_PER_ROW;
+    let rows = cores.len().div_ceil(CELLS_PER_ROW);
     Canvas::new()
         .width(CELLS_PER_ROW as f64 * (CELL + CELL_GAP))
         .height(rows as f64 * (CELL + CELL_GAP))
