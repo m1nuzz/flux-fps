@@ -105,6 +105,8 @@ impl Component for FluxFpsApp {
                 "Game Mode: {} background processes managed",
                 self.latest.managed_pids.len()
             )),
+            TextBlock::new().text("CPU cores (blue = P, green = E):"),
+            chart::cpu_map(&self.latest.cpu_cores),
             TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
             chart::dpc_chart(&self.latest),
             TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),

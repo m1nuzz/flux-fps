@@ -51,6 +51,19 @@ pub async fn run(
     }
     let _ = &mut dpc_monitor; // kept alive until run() returns
 
+    // Static per-core topology for the dashboard P/E map.
+    let cpu_cores: Vec<common::CoreInfo> = crate::cpu_isolation::enumerate_cpu_sets()
+        .map(|cores| {
+            cores
+                .iter()
+                .map(|c| common::CoreInfo {
+                    cpu_set_id: c.cpu_set_id,
+                    efficiency_class: c.efficiency_class,
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut last_purge: Option<Instant> = None;
     let mut tick = tokio::time::interval(Duration::from_secs(1));
 
@@ -106,6 +119,7 @@ pub async fn run(
                     available_mb: stats.available_mb,
                     dpc_max_us: dpc,
                     fps_cap: config.fps_cap,
+                    cpu_cores: cpu_cores.clone(),
                 });
             }
             command = commands.recv() => {
