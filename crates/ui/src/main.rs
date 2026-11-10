@@ -148,8 +148,8 @@ fn main() {
     let telemetry = ready_rx.recv().expect("engine telemetry channel");
     // Blocks on the WinUI message loop until the window closes.
     App::run_component::<FluxFpsApp>(EngineHandles {
-        commands,
-        telemetry,
+        commands: std::sync::Arc::new(commands),
+        telemetry: std::sync::Arc::new(telemetry),
     })
     .expect("reactor app run");
 }
