@@ -149,8 +149,7 @@ impl FramePacer {
             std::hint::spin_loop();
         }
 
-        let elapsed = (qpc_now() - started) as f64 / self.qpc_frequency * 1000.0;
-        elapsed
+        (qpc_now() - started) as f64 / self.qpc_frequency * 1000.0
     }
 }
 
