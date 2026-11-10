@@ -19,7 +19,7 @@ common = { path = "crates/common" }
 engine = { path = "crates/engine" }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
 windows-sys = { version = "0.59", features = [
     "Wdk_System_SystemServices",
     "Win32_Foundation",
