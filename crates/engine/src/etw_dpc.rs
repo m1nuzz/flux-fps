@@ -118,7 +118,6 @@ impl Shared {
 /// joins the worker threads.
 pub struct DpcMonitor {
     stop: Arc<AtomicBool>,
-    shared: Arc<Shared>,
     consumer: Option<JoinHandle<()>>,
     publisher: Option<JoinHandle<()>>,
 }
@@ -220,7 +219,6 @@ pub fn start(
     Ok((
         DpcMonitor {
             stop,
-            shared,
             consumer: Some(consumer),
             publisher: Some(publisher),
         },
