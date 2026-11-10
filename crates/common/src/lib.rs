@@ -9,7 +9,7 @@ pub mod telemetry;
 pub use command::Command;
 pub use config::Config;
 pub use profile::Profile;
-pub use telemetry::{CoreInfo, TelemetrySnapshot};
+pub use telemetry::{CoreInfo, FrametimeStats, TelemetrySnapshot};
 
 /// Workspace-wide semantic version, baked into every binary.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

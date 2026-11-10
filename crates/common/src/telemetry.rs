@@ -11,6 +11,22 @@ pub struct CoreInfo {
     pub efficiency_class: u8,
 }
 
+/// Aggregate frametime statistics from the ETW Present monitor (Phase 3.3).
+///
+/// All frametime values are milliseconds; `None` means no Present events have
+/// been observed in the sliding window yet.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct FrametimeStats {
+    /// Mean frametime over the sliding window, ms.
+    pub avg_ms: Option<f32>,
+    /// 99th percentile frametime, ms - the "worst 1%" of frames.
+    pub p99_ms: Option<f32>,
+    /// Presents observed per second in the sliding window.
+    pub presents_per_sec: f32,
+    /// Number of frametime samples in the window.
+    pub samples: usize,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct TelemetrySnapshot {
     pub game_mode_active: bool,
@@ -25,4 +41,6 @@ pub struct TelemetrySnapshot {
     pub fps_cap: Option<f32>,
     /// Static per-core topology for the P/E map (populated at engine start).
     pub cpu_cores: Vec<CoreInfo>,
+    /// Latest frametime aggregate from the DxgKrnl Present session.
+    pub frametimes: FrametimeStats,
 }

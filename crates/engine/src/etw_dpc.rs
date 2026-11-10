@@ -175,16 +175,11 @@ pub fn start(
         .spawn(move || {
             // Keep the context alive for the whole session: the ETW callback
             // dereferences this allocation through record.UserContext.
-            let session = match run_session(&consumer_shared, &consumer_stop) {
-                Ok(()) => {
-                    let _ = result_tx.send(Ok(()));
-                    // ProcessTrace returned (stop requested).
-                    consumer_stop.store(true, Ordering::SeqCst);
-                    return;
-                }
-                Err(e) => e,
-            };
-            let _ = result_tx.send(Err(session));
+            // `run_session` reports readiness before it blocks in ProcessTrace,
+            // so `start()` returns while the session is still live.
+            if let Err(e) = run_session(&consumer_shared, &result_tx) {
+                let _ = result_tx.send(Err(e));
+            }
             consumer_stop.store(true, Ordering::SeqCst);
         })
         .map_err(|_| EngineError::InvalidState("failed to spawn consumer thread"))?;
@@ -257,7 +252,10 @@ fn build_properties_buffer() -> Result<Vec<u8>, EngineError> {
     Ok(buffer)
 }
 
-fn run_session(shared: &Arc<Shared>, stop: &AtomicBool) -> Result<(), EngineError> {
+fn run_session(
+    shared: &Arc<Shared>,
+    ready: &std::sync::mpsc::Sender<Result<(), EngineError>>,
+) -> Result<(), EngineError> {
     let mut properties = build_properties_buffer()?;
     let name_wide = to_wide(KERNEL_LOGGER_NAME);
 
@@ -303,6 +301,9 @@ fn run_session(shared: &Arc<Shared>, stop: &AtomicBool) -> Result<(), EngineErro
         return Err(EngineError::win32("OpenTraceW"));
     }
 
+    // The session is live: unblock `start()` before entering the blocking loop.
+    let _ = ready.send(Ok(()));
+
     // SAFETY: single valid handle; blocking call until the session is stopped.
     let _process_status = unsafe { ProcessTrace(&trace, 1, std::ptr::null(), std::ptr::null()) };
 
@@ -319,7 +320,6 @@ fn run_session(shared: &Arc<Shared>, stop: &AtomicBool) -> Result<(), EngineErro
         );
     }
 
-    let _ = stop; // stop flag is flipped by the caller after we return
     Ok(())
 }
 

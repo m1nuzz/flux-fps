@@ -7,11 +7,12 @@
 //! purge runs in `tokio::task::spawn_blocking`.
 
 use crate::etw_dpc;
+use crate::etw_present;
 use crate::game_mode::GameModeManager;
 use crate::memory;
 use crate::memory_purge;
 use crate::telemetry::TelemetryHub;
-use common::{Command, Config, TelemetrySnapshot};
+use common::{Command, Config, FrametimeStats, TelemetrySnapshot};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch};
@@ -50,6 +51,19 @@ pub async fn run(
         Err(e) => eprintln!("[flux-fps] ETW DPC monitor task failed: {e}"),
     }
     let _ = &mut dpc_monitor; // kept alive until run() returns
+
+    // ETW DxgKrnl Present monitor: best-effort frametime source (Phase 3.3).
+    let mut present_monitor: Option<etw_present::PresentMonitor> = None;
+    let mut present_rx: Option<watch::Receiver<FrametimeStats>> = None;
+    match tokio::task::spawn_blocking(etw_present::start).await {
+        Ok(Ok((monitor, rx))) => {
+            present_monitor = Some(monitor);
+            present_rx = Some(rx);
+        }
+        Ok(Err(e)) => eprintln!("[flux-fps] ETW Present monitor unavailable: {e}"),
+        Err(e) => eprintln!("[flux-fps] ETW Present monitor task failed: {e}"),
+    }
+    let _ = &mut present_monitor; // kept alive until run() returns
 
     // Static per-core topology for the dashboard P/E map.
     let cpu_cores: Vec<common::CoreInfo> = crate::cpu_isolation::enumerate_cpu_sets()
@@ -112,6 +126,10 @@ pub async fn run(
                     Some(rx) => rx.borrow().clone(),
                     None => Vec::new(),
                 };
+                let frametimes = match &present_rx {
+                    Some(rx) => *rx.borrow(),
+                    None => FrametimeStats::default(),
+                };
                 hub.publish(TelemetrySnapshot {
                     game_mode_active: manager.is_enabled(),
                     managed_pids: manager.managed_pids(),
@@ -120,6 +138,7 @@ pub async fn run(
                     dpc_max_us: dpc,
                     fps_cap: config.fps_cap,
                     cpu_cores: cpu_cores.clone(),
+                    frametimes,
                 });
             }
             command = commands.recv() => {

@@ -7,6 +7,7 @@
 pub mod cpu_isolation;
 pub mod error;
 pub mod etw_dpc;
+pub mod etw_present;
 pub mod game_mode;
 pub mod memory;
 pub mod memory_purge;

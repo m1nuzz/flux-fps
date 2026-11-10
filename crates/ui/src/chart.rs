@@ -5,7 +5,7 @@
 //! scale: green < 100 us (healthy), amber < 250 us (watch), red >= 250 us
 //! (audio/glitch territory).
 
-use common::{CoreInfo, TelemetrySnapshot};
+use common::{CoreInfo, FrametimeStats, TelemetrySnapshot};
 use windows_reactor::{
     Brush, Canvas, CanvasChildExt, ChildrenControl, Color, KeyedView, LayoutControl, Rectangle,
     TextBlock, View,
@@ -60,6 +60,20 @@ pub fn dpc_chart(snapshot: &TelemetrySnapshot) -> View {
         .width(CHART_WIDTH)
         .height(CHART_HEIGHT)
         .keyed_children(bars)
+}
+
+/// Compact frametime readout from the DxgKrnl Present monitor.
+pub fn frametime_text(stats: &FrametimeStats) -> String {
+    match (stats.avg_ms, stats.p99_ms) {
+        (Some(avg), Some(p99)) => format!(
+            "Frame time: avg {avg:.2} ms / p99 {p99:.2} ms (1% low {:.0} fps), \
+             {:.0} presents/s ({} samples)",
+            1000.0 / p99.max(0.001),
+            stats.presents_per_sec,
+            stats.samples
+        ),
+        _ => "Frame time: waiting for DxgKrnl Present events...".to_string(),
+    }
 }
 
 const CELL: f64 = 22.0;
