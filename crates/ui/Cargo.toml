@@ -13,3 +13,4 @@ path = "src/main.rs"
 common = { workspace = true }
 engine = { workspace = true }
 tokio = { workspace = true }
+windows-reactor = "0.100"
