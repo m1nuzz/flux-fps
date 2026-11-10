@@ -21,6 +21,14 @@ pub enum Command {
     SetPacerEnabled(bool),
     /// Pacer aggressiveness: safety factor applied to p99 frametime.
     SetPacerSafetyFactor(f32),
+    /// Memory purge trigger thresholds (settings panel).
+    SetPurgeThresholds {
+        commit_percent: u8,
+        available_mb: u32,
+        cooldown_secs: u64,
+    },
+    /// Replace the protected game process list.
+    SetGameWhitelist(Vec<String>),
     /// Shut the engine down gracefully.
     Shutdown,
 }

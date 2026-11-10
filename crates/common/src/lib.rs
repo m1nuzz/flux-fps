@@ -7,7 +7,7 @@ pub mod profile;
 pub mod telemetry;
 
 pub use command::Command;
-pub use config::Config;
+pub use config::{normalize_whitelist_entry, Config};
 pub use profile::Profile;
 pub use telemetry::{CoreInfo, FrametimeStats, PacerAdvice, TelemetrySnapshot};
 

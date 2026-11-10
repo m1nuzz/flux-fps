@@ -119,13 +119,17 @@ pub async fn run(
                 // 2. Game Mode tick (scan + apply/remove).
                 let mut excluded: HashSet<u32> = HashSet::new();
                 excluded.insert(std::process::id());
-                let candidates = match crate::process::background_candidates(&excluded) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        eprintln!("[flux-fps] process scan failed: {e}");
-                        continue;
-                    }
-                };
+                let candidates: Vec<crate::process::ProcessEntry> =
+                    match crate::process::background_candidates(&excluded) {
+                        Ok(c) => c
+                            .into_iter()
+                            .filter(|p| !config.is_whitelisted(&p.exe_name))
+                            .collect(),
+                        Err(e) => {
+                            eprintln!("[flux-fps] process scan failed: {e}");
+                            continue;
+                        }
+                    };
                 manager.tick(&candidates, &mut |pid, e| {
                     eprintln!("[flux-fps] game mode error for pid {pid}: {e}")
                 });
@@ -192,6 +196,18 @@ pub async fn run(
                     Some(Command::SetPacerEnabled(on)) => config.pacer_enabled = on,
                     Some(Command::SetPacerSafetyFactor(factor)) => {
                         config.pacer_safety_factor = factor.clamp(1.0, 2.0);
+                    }
+                    Some(Command::SetPurgeThresholds {
+                        commit_percent,
+                        available_mb,
+                        cooldown_secs,
+                    }) => {
+                        config.purge_commit_threshold_percent = commit_percent;
+                        config.purge_available_threshold_mb = available_mb;
+                        config.purge_cooldown_secs = cooldown_secs;
+                    }
+                    Some(Command::SetGameWhitelist(list)) => {
+                        config.game_whitelist = list;
                     }
                     Some(Command::SetGameModeEnabled(on)) => {
                         manager.set_enabled(on, &mut |pid, e| {

@@ -22,6 +22,11 @@ pub struct Config {
     pub pacer_safety_factor: f32,
     /// Lower bound for any suggested FPS limit.
     pub pacer_min_fps: u32,
+    /// Process names (case-insensitive) that must never be isolated as
+    /// background processes - typically the games themselves.
+    pub game_whitelist: Vec<String>,
+    /// Register the resident app for logon (applied by the installer/helper).
+    pub auto_start: bool,
 }
 
 impl Default for Config {
@@ -35,6 +40,8 @@ impl Default for Config {
             pacer_enabled: true,
             pacer_safety_factor: 1.10,
             pacer_min_fps: 30,
+            game_whitelist: Vec::new(),
+            auto_start: false,
         }
     }
 }
@@ -71,6 +78,29 @@ impl Config {
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         std::fs::write(path, text)
     }
+
+    /// True when a process must be protected from Game Mode isolation.
+    pub fn is_whitelisted(&self, exe_name: &str) -> bool {
+        self.game_whitelist
+            .iter()
+            .any(|entry| entry.eq_ignore_ascii_case(exe_name))
+    }
+}
+
+/// Sanitizes a user-typed whitelist entry: lower-case `.exe` name only, no
+/// paths, no wildcards, no quotes. Returns `None` for anything ambiguous.
+pub fn normalize_whitelist_entry(raw: &str) -> Option<String> {
+    let name = raw.trim().trim_matches('"').to_ascii_lowercase();
+    if name.len() < 5 || !name.ends_with(".exe") {
+        return None;
+    }
+    if name
+        .chars()
+        .any(|c| matches!(c, '/' | '\\' | ':' | '*' | '?' | '<' | '>' | '|' | '"'))
+    {
+        return None;
+    }
+    Some(name)
 }
 
 fn rename_bak(path: &std::path::Path) -> std::io::Result<()> {
@@ -97,6 +127,45 @@ mod tests {
         assert_eq!(loaded.fps_cap, Some(141.0));
         assert_eq!(loaded.purge_cooldown_secs, 30);
         assert_eq!(loaded.purge_commit_threshold_percent, 85);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn whitelist_matching_is_case_insensitive() {
+        let config = Config {
+            game_whitelist: vec!["CS2.exe".into(), "deadlock.exe".into()],
+            ..Config::default()
+        };
+        assert!(config.is_whitelisted("cs2.EXE"));
+        assert!(config.is_whitelisted("Deadlock.exe"));
+        assert!(!config.is_whitelisted("obs64.exe"));
+    }
+
+    #[test]
+    fn whitelist_entries_are_sanitized() {
+        assert_eq!(
+            normalize_whitelist_entry("  \"CS2.EXE\" "),
+            Some("cs2.exe".to_string())
+        );
+        assert_eq!(normalize_whitelist_entry("game"), None);
+        assert_eq!(normalize_whitelist_entry("C:\\games\\game.exe"), None);
+        assert_eq!(normalize_whitelist_entry("*.exe"), None);
+        assert_eq!(normalize_whitelist_entry("  "), None);
+    }
+
+    #[test]
+    fn round_trip_preserves_whitelist_and_autostart() {
+        let config = Config {
+            game_whitelist: vec!["cs2.exe".into()],
+            auto_start: true,
+            ..Config::default()
+        };
+        let dir = std::env::temp_dir().join(format!("flux-fps-test-wl-{}", std::process::id()));
+        let path = dir.join("config.toml");
+        config.save(&path).expect("save");
+        let loaded = Config::load_or_default(&path);
+        assert_eq!(loaded.game_whitelist, vec!["cs2.exe".to_string()]);
+        assert!(loaded.auto_start);
         std::fs::remove_dir_all(&dir).ok();
     }
 
