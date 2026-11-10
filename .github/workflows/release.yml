@@ -1,0 +1,45 @@
+# Release workflow: every vX.Y.Z tag builds all three binaries and attaches
+# them to the GitHub release (RF p.9.4 - resident, setup, master).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Build release binaries
+        run: cargo build --release --locked
+
+      - name: Package assets (one zip per binary)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item target/release/flux-fps.exe dist/
+          Copy-Item target/release/flux-fps-setup.exe dist/
+          Copy-Item target/release/flux-fps-master.exe dist/
+          Compress-Archive -Path target/release/flux-fps.exe -DestinationPath dist/flux-fps.zip
+          Compress-Archive -Path target/release/flux-fps-setup.exe -DestinationPath dist/flux-fps-setup.zip
+          Compress-Archive -Path target/release/flux-fps-master.exe -DestinationPath dist/flux-fps-master.zip
+          Get-ChildItem dist | Select-Object Name, Length
+
+      - name: Create release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create $env:GITHUB_REF_NAME `
+            --title "flux-fps $env:GITHUB_REF_NAME" `
+            --notes "Concept build. All three binaries are attached: flux-fps.zip (resident), flux-fps-setup.zip (baseline wizard), flux-fps-master.zip (calibration suite). Unsigned builds - SmartScreen will warn." `
+            dist/flux-fps.zip dist/flux-fps-setup.zip dist/flux-fps-master.zip
