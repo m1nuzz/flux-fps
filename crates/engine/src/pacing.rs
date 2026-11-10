@@ -10,12 +10,11 @@
 //! the master tool (e.g. 239.996 Hz is NOT rounded to 240).
 
 use crate::error::EngineError;
-use std::mem;
-use windows_sys::Win32::Foundation::{CloseHandle, WaitForSingleObject, HANDLE, INFINITE};
+use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 use windows_sys::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
 use windows_sys::Win32::System::Threading::{
-    CreateWaitableTimerExW, SetWaitableTimer, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION,
-    CREATE_WAITABLE_TIMER_MANUAL_RESET,
+    CreateWaitableTimerExW, SetWaitableTimer, WaitForSingleObject,
+    CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, CREATE_WAITABLE_TIMER_MANUAL_RESET, INFINITE,
 };
 
 /// DesiredAccess for the timer handle: TIMER_ALL_ACCESS.
