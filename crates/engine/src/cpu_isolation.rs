@@ -23,7 +23,9 @@ pub const EFFICIENCY_CLASS_P_CORE: u8 = 1;
 
 /// Memory priority for background processes (low: their pages are evicted
 /// from standby before the game's pages).
-const MEMORY_PRIORITY_LOW: u8 = 1;
+const MEMORY_PRIORITY_LOW: u32 = 1;
+/// Default memory priority (MEMORY_PRIORITY_NORMAL).
+const MEMORY_PRIORITY_NORMAL: u32 = 4;
 
 /// PROCESS_INFORMATION_CLASS values (Win32 enum, NOT the Nt PROCESSINFOCLASS).
 const PROCESS_MEMORY_PRIORITY: PROCESS_INFORMATION_CLASS = ProcessMemoryPriority;
@@ -137,7 +139,7 @@ pub fn apply_background_isolation(pid: u32, cpu_set_ids: &[u32]) -> Result<(), E
 pub fn remove_background_isolation(pid: u32) -> Result<(), EngineError> {
     let handle = open_process_limited(pid)?;
     set_default_cpu_sets(handle.0, &[])?;
-    set_memory_priority(handle.0, 4)?; // MEMORY_PRIORITY_NORMAL
+    set_memory_priority(handle.0, MEMORY_PRIORITY_NORMAL)?;
     set_power_throttling(handle.0, false)?;
     Ok(())
 }
@@ -170,14 +172,15 @@ fn set_default_cpu_sets(handle: HANDLE, cpu_set_ids: &[u32]) -> Result<(), Engin
     Ok(())
 }
 
-fn set_memory_priority(handle: HANDLE, priority: u8) -> Result<(), EngineError> {
-    // SAFETY: class PROCESS_MEMORY_PRIORITY expects exactly one BYTE.
+fn set_memory_priority(handle: HANDLE, priority: u32) -> Result<(), EngineError> {
+    // SAFETY: class PROCESS_MEMORY_PRIORITY expects a DWORD (ULONG) value,
+    // matching the underlying NtSetInformationProcess ABI.
     if unsafe {
         SetProcessInformation(
             handle,
             PROCESS_MEMORY_PRIORITY,
-            &priority as *const u8 as *mut core::ffi::c_void,
-            mem::size_of::<u8>() as u32,
+            &priority as *const u32 as *mut core::ffi::c_void,
+            mem::size_of::<u32>() as u32,
         )
     } == 0
     {
