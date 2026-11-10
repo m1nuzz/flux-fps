@@ -10,6 +10,7 @@ pub mod etw_dpc;
 pub mod game_mode;
 pub mod memory;
 pub mod memory_purge;
+pub mod pacing;
 pub mod process;
 pub mod runtime;
 pub mod telemetry;
