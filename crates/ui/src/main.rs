@@ -11,12 +11,26 @@
 
 use common::{Command, Config, TelemetrySnapshot};
 use tokio::sync::{mpsc, watch};
-use windows_reactor::{App, Button, Component, ComponentContext, StackPanel, TextBlock, View};
+use windows_reactor::{
+    App, Button, ChildrenControl, Component, ComponentContext, ContentControl, StackPanel,
+    TextBlock, View,
+};
 
 /// Engine-side handles handed to the root component as its Input.
+///
+/// `run_component` requires `Input: Clone + PartialEq`; the channels are
+/// shared behind `Arc`s and compare equal only for the same instance.
+#[derive(Clone)]
 pub struct EngineHandles {
-    pub commands: mpsc::Sender<Command>,
-    pub telemetry: watch::Receiver<TelemetrySnapshot>,
+    pub commands: std::sync::Arc<mpsc::Sender<Command>>,
+    pub telemetry: std::sync::Arc<watch::Receiver<TelemetrySnapshot>>,
+}
+
+impl PartialEq for EngineHandles {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.commands, &other.commands)
+            && std::sync::Arc::ptr_eq(&self.telemetry, &other.telemetry)
+    }
 }
 
 /// Messages delivered to the root component's update loop.
@@ -94,7 +108,7 @@ impl Component for FluxFpsApp {
 /// Arms one telemetry poll: sleeps ~33 ms on the Windows thread pool, clones
 /// the latest engine snapshot and delivers it as a Message. `update()` re-arms.
 fn spawn_telemetry_poll(
-    telemetry: watch::Receiver<TelemetrySnapshot>,
+    telemetry: std::sync::Arc<watch::Receiver<TelemetrySnapshot>>,
     context: &ComponentContext<FluxFpsApp>,
 ) {
     context.spawn_background(move |_cancellation| {
