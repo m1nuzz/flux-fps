@@ -108,3 +108,17 @@ fn enable_profile_single_process_privilege() -> Result<(), EngineError> {
     // STATUS_PRIVILEGE_NOT_HELD, which the caller surfaces.
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Requires elevation (run manually as admin: `cargo test -- --ignored`).
+    /// Purges the low-priority standby list once and expects STATUS_SUCCESS.
+    /// Modifies system memory state; hence ignored by default.
+    #[test]
+    #[ignore = "requires elevation and modifies system memory state"]
+    fn purge_succeeds_when_elevated() {
+        purge_low_priority_standby_list().expect("purge must succeed when elevated");
+    }
+}

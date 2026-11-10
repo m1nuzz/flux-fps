@@ -216,3 +216,53 @@ fn set_power_throttling(handle: HANDLE, enable: bool) -> Result<(), EngineError>
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Live-system test: CPU set enumeration must succeed on any Windows 10+
+    /// machine and return a non-empty, consistent core list.
+    #[test]
+    fn enumerate_returns_consistent_cores() {
+        let cores = enumerate_cpu_sets().expect("enumeration must succeed on live Windows");
+        assert!(!cores.is_empty());
+        // CPU set ids are unique.
+        let mut ids: Vec<u32> = cores.iter().map(|c| c.cpu_set_id).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), cores.len(), "cpu set ids must be unique");
+    }
+
+    /// e_core_ids must be a subset of the enumerated ids and only contain
+    /// non-P-core entries.
+    #[test]
+    fn e_core_ids_are_valid_subset() {
+        let cores = enumerate_cpu_sets().expect("enumeration must succeed on live Windows");
+        let e_ids = e_core_ids(&cores);
+        for id in &e_ids {
+            let core = cores
+                .iter()
+                .find(|c| c.cpu_set_id == *id)
+                .expect("e-core id must map back to a core");
+            assert!(!core.is_p_core);
+            assert_eq!(core.efficiency_class, EFFICIENCY_CLASS_E_CORE);
+        }
+    }
+
+    /// Isolation apply/remove round-trip on the current process. Safe: all
+    /// three mechanisms are soft settings that we immediately revert.
+    #[test]
+    fn isolation_round_trip_on_current_process() {
+        let cores = enumerate_cpu_sets().expect("enumeration must succeed on live Windows");
+        // Use E-cores when present, otherwise the first core (non-hybrid CI
+        // machines) - the point is that settings apply and revert cleanly.
+        let targets = match e_core_ids(&cores).first() {
+            Some(id) => vec![*id],
+            None => vec![cores[0].cpu_set_id],
+        };
+        let pid = std::process::id();
+        apply_background_isolation(pid, &targets).expect("apply must succeed for own process");
+        remove_background_isolation(pid).expect("remove must succeed for own process");
+    }
+}
