@@ -1,0 +1,12 @@
+# Embed an asInvoker UAC manifest in every Windows binary.
+#
+# The elevated helper is launched by the Task Scheduler logon task
+# (RunLevel Highest), not by a requireAdministrator manifest: the very same
+# executable must stay unelevated when it runs the tray UI. asInvoker also
+# suppresses Windows "installer detection", which would otherwise trigger a
+# spurious UAC prompt for the portable flux-fps-setup.exe wizard.
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+  "-C", "link-arg=/MANIFEST:EMBED",
+  "-C", "link-arg=/MANIFESTUAC:\"level='asInvoker' uiAccess='false'\"",
+]
