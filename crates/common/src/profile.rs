@@ -77,3 +77,70 @@ impl Profile {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample(verdict: Option<Verdict>) -> Profile {
+        Profile {
+            schema_version: PROFILE_SCHEMA_VERSION,
+            cores: vec![
+                ProfileCore {
+                    cpu_set_id: 0,
+                    is_p_core: true,
+                    score: 1.0,
+                },
+                ProfileCore {
+                    cpu_set_id: 1,
+                    is_p_core: false,
+                    score: 0.6,
+                },
+            ],
+            background_cpu_set_ids: vec![1],
+            refresh_rate_hz: 239.996,
+            pacing_safety_factor: 0.909,
+            last_verdict: verdict,
+        }
+    }
+
+    #[test]
+    fn verdict_labels_are_stable() {
+        assert_eq!(Verdict::Apply.label(), "APPLY");
+        assert_eq!(Verdict::KeepInsignificant.label(), "KEEP-INSIGNIFICANT");
+        assert_eq!(Verdict::Revert.label(), "REVERT");
+    }
+
+    #[test]
+    fn summary_reports_both_states() {
+        let pending = sample(None).verdict_summary();
+        assert!(pending.contains("2 cores"));
+        assert!(pending.contains("no A/B verdict"));
+        let applied = sample(Some(Verdict::Apply)).verdict_summary();
+        assert!(applied.contains("APPLY"));
+    }
+
+    #[test]
+    fn loader_ignores_missing_broken_and_future_profiles() {
+        let dir = std::env::temp_dir().join(format!("flux-fps-profile-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("profile.toml");
+
+        assert!(Profile::load(&path).is_none());
+        std::fs::write(&path, "not valid toml ==").unwrap();
+        assert!(Profile::load(&path).is_none());
+
+        let good = sample(Some(Verdict::Revert));
+        std::fs::write(&path, toml::to_string_pretty(&good).unwrap()).unwrap();
+        let loaded = Profile::load(&path).unwrap();
+        assert_eq!(loaded.last_verdict, Some(Verdict::Revert));
+        assert_eq!(loaded.cores.len(), 2);
+
+        let mut future = good;
+        future.schema_version = PROFILE_SCHEMA_VERSION + 1;
+        std::fs::write(&path, toml::to_string_pretty(&future).unwrap()).unwrap();
+        assert!(Profile::load(&path).is_none());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+}

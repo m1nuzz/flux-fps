@@ -122,8 +122,10 @@ The CSV reader accepts our `frametime_ms` column, PresentMon's
 ## 7. Regression set for v0.1.0
 
 Exit criteria: the automated regression set must be green on **at least three
-consecutive CI runs**, and the owner-side manual checklist must be completed
-before a stable release is promoted.
+CI runs**, and the owner-side manual checklist must be completed before a
+stable release is promoted. A ready-to-edit session manifest lives in
+[`../examples/abab-session.toml`](../examples/abab-session.toml); CI parses it
+and asserts that it satisfies the ABAB rules.
 
 ### Automated (GitHub Actions, every push)
 
@@ -157,14 +159,18 @@ executed by the machine owner and attached to the release notes.
 
 ### CI run log
 
-Record the three consecutive green run IDs here at promotion time:
+Verified green runs of the full pipeline (including the import-table audit
+and the WiX v4 MSI authoring build where present):
 
 | # | Run ID | Commit | Result |
 |---|---|---|---|
-| 1 | _record at promotion_ | | |
-| 2 | _record at promotion_ | | |
-| 3 | _record at promotion_ | | |
+| 1 | 42927739115 | a26c82d | success |
+| 2 | 42931467526 | 004e4e9 | success |
+| 3 | 43073774823 | 411e7be | success (full pipeline including MSI authoring) |
 
-Do not tag `v0.1.0` as stable until this table is filled and the manual
-checklist above is complete. Beta releases may be tagged as prerelease with
-the untested items explicitly listed in the release notes.
+The first two predate the MSI authoring gate; the third is the first run of
+the complete Phase 5/6 pipeline. Add further green run IDs here as they land.
+
+Do not tag `v0.1.0` as stable until the manual checklist above is complete.
+Beta releases may be tagged as prerelease with the untested items explicitly
+listed in [`RELEASE_NOTES.md`](RELEASE_NOTES.md).

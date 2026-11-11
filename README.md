@@ -86,6 +86,9 @@ with broken alternation, or with runs shorter than 60 s. It prints
 - [`docs/ANTI_CHEAT_CHECKLIST.md`](docs/ANTI_CHEAT_CHECKLIST.md) - anti-cheat
   and safety matrix.
 - [`docs/SIGNING.md`](docs/SIGNING.md) - code-signing plan.
+- [`docs/RELEASE_NOTES.md`](docs/RELEASE_NOTES.md) - v0.1.0 beta candidate
+  notes, tested scope and owner verification steps.
+- [`examples/`](examples/) - ready-to-edit ABAB session manifest.
 - [`SECURITY.md`](SECURITY.md) - security model, kernel opt-in policy,
   vulnerability reporting.
 - [`AGENTS.md`](AGENTS.md) - repository rules and invariants.

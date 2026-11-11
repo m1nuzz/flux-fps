@@ -484,6 +484,18 @@ mod tests {
     }
 
     #[test]
+    fn shipped_example_session_is_parseable() {
+        let text = include_str!("../../../examples/abab-session.toml");
+        let mut session: Session = toml::from_str(text).unwrap();
+        assert_eq!(session.runs.len(), MIN_PAIRS * 2);
+        // The template must not be usable as a result until a real warmup
+        // happened and the operator confirms it.
+        assert!(validate(&session).is_err());
+        session.warmup_done = true;
+        assert!(validate(&session).is_ok());
+    }
+
+    #[test]
     fn utc_date_is_well_formed() {
         let date = utc_date();
         assert_eq!(date.len(), 10);

@@ -1,0 +1,89 @@
+# Example ABAB session manifest for flux-fps-master.
+#
+# Copy this directory to a working folder, capture one CSV per run, then set
+# warmup_done = true only after a real 3-5 minute warmup. Do not claim a
+# verdict from this template: no measurement data is included here.
+#
+# Fixed variables must not change between runs. The only differing variable is
+# Game Mode OFF (baseline) vs Game Mode ON with the calibrated profile
+# (variant). Keep HAGS in the same state for the whole session.
+
+schema_version = 1
+game = "CS2"
+scenario = "built-in benchmark"
+resolution = "1920x1080"
+preset = "high"
+power_plan = "balanced"
+gpu_driver = "replace-with-installed-driver-version"
+hags_enabled = true
+warmup_done = false
+
+[[runs]]
+id = "run-01"
+variant = "baseline"
+csv = "run-01.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-02"
+variant = "variant"
+csv = "run-02.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-03"
+variant = "baseline"
+csv = "run-03.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-04"
+variant = "variant"
+csv = "run-04.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-05"
+variant = "baseline"
+csv = "run-05.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-06"
+variant = "variant"
+csv = "run-06.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-07"
+variant = "baseline"
+csv = "run-07.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-08"
+variant = "variant"
+csv = "run-08.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-09"
+variant = "baseline"
+csv = "run-09.csv"
+duration_secs = 90
+dpc_max_us = 0.0
+
+[[runs]]
+id = "run-10"
+variant = "variant"
+csv = "run-10.csv"
+duration_secs = 90
+dpc_max_us = 0.0
