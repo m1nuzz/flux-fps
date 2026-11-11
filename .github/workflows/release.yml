@@ -1,10 +1,24 @@
-# Release workflow: a vX.Y.Z tag builds the signed-to-be resident MSI plus
-# the two portable tools. Exactly three assets are published (AGENTS.md).
+# Release workflow. A vX.Y.Z tag build publishes exactly three assets
+# (AGENTS.md). A manual dispatch can run the identical pipeline as a
+# build-only dry run: publish=false validates the release build, the PE
+# import-table audit and the MSI authoring without creating a public release.
+# Publishing stays a manual, explicit action (AGENTS.md).
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build, e.g. 0.1.0 or 0.1.0-beta.1"
+        required: true
+        default: "0.1.0"
+      publish:
+        description: "Publish a GitHub release (false = build-only dry run)"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -12,6 +26,10 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      # Tag pushes: the pushed tag. Manual dispatch: v + the requested version.
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref_name }}
+      PUBLISH_RELEASE: ${{ github.event_name == 'push' && 'true' || format('{0}', inputs.publish) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -39,7 +57,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $tag = $env:RELEASE_TAG
+          $version = $tag.TrimStart('v')
           # MSI ProductVersion must be numeric (x.y.z[.w]); strip a prerelease
           # suffix such as -beta.1 from the tag before passing it to WiX.
           $msiVersion = ($version -split '-')[0]
@@ -60,7 +79,7 @@ jobs:
           # winget manifests describe a stable package only; refresh them for
           # stable tags and expose the MSI hash in the release notes.
           # Signing is not configured yet (docs/SIGNING.md).
-          if ($env:GITHUB_REF_NAME -notmatch '-') {
+          if ($version -notmatch '-') {
             ./scripts/Update-WingetManifest.ps1 -MsiPath ./dist/flux-fps.msi -Version $msiVersion
           }
           $hash = (Get-FileHash ./dist/flux-fps.msi -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -68,13 +87,11 @@ jobs:
 
           Get-ChildItem dist | Select-Object Name, Length
 
-      - name: Create release and upload assets
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Prepare release notes
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $prereleaseNote = ''
           if ($tag -match '-') {
             $prereleaseNote = 'This is a prerelease. Do not treat it as a stable v0.1.0 promotion.'
@@ -108,7 +125,18 @@ jobs:
           ABAB workflow, the 24 h soak and restore-test. See docs/VALIDATION.md
           and docs/ANTI_CHEAT_CHECKLIST.md.
           "@
-          $ghArgs = @('release', 'create', $tag, '--title', "flux-fps $tag", '--notes', $notes)
+          Set-Content -LiteralPath dist/release-notes.md -Value $notes -Encoding utf8
+          Get-Content dist/release-notes.md
+
+      - name: Publish release assets
+        if: env.PUBLISH_RELEASE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:RELEASE_TAG
+          $ghArgs = @('release', 'create', $tag, '--title', "flux-fps $tag", '--notes-file', 'dist/release-notes.md')
           if ($tag -match '-') { $ghArgs += '--prerelease' }
           $ghArgs += @('dist/flux-fps.msi', 'dist/flux-fps-setup.zip', 'dist/flux-fps-master.zip')
           & gh @ghArgs
