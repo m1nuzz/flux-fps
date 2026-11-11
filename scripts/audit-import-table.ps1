@@ -62,13 +62,15 @@ function Get-AsciiZ {
 }
 
 function Convert-RvaToOffset {
-    param([byte[]]$Data, [uint32]$Rva, [int]$SectionStart, [int]$SectionCount)
+    param([byte[]]$Data, [uint64]$Rva, [int]$SectionStart, [int]$SectionCount)
     for ($i = 0; $i -lt $SectionCount; $i++) {
         $header = $SectionStart + ($i * 40)
-        $virtualSize = Get-U32 $Data ($header + 8)
-        $virtualAddress = Get-U32 $Data ($header + 12)
-        $rawSize = Get-U32 $Data ($header + 16)
-        $rawPointer = Get-U32 $Data ($header + 20)
+        # Widen to UInt64 before addition: UInt32 arithmetic would wrap on
+        # large images and silently produce a wrong file offset.
+        $virtualSize = [uint64](Get-U32 $Data ($header + 8))
+        $virtualAddress = [uint64](Get-U32 $Data ($header + 12))
+        $rawSize = [uint64](Get-U32 $Data ($header + 16))
+        $rawPointer = [uint64](Get-U32 $Data ($header + 20))
         $span = [Math]::Max($virtualSize, $rawSize)
         if ($Rva -ge $virtualAddress -and $Rva -lt ($virtualAddress + $span)) {
             return [int]($rawPointer + ($Rva - $virtualAddress))
@@ -98,12 +100,10 @@ $magic = Get-U16 $bytes $optionalStart
 if ($magic -eq 0x20B) {
     $dataDirectory = 112
     $thunkWidth = 8
-    $ordinalBit = [uint64]0x8000000000000000
 }
 elseif ($magic -eq 0x10B) {
     $dataDirectory = 96
     $thunkWidth = 4
-    $ordinalBit = [uint64]0x80000000
 }
 else {
     throw ("Unsupported optional header magic 0x{0:X}" -f $magic)
@@ -146,7 +146,16 @@ if ($importRva -ne 0) {
                 $value = [uint64](Get-U32 $bytes $slot)
             }
             if ($value -eq 0) { break }
-            if (($value -band $ordinalBit) -ne 0) { continue }
+            # Ordinal imports carry no name. PowerShell parses the 64-bit
+            # hex literal 0x8000000000000000 as a negative Int64, so test the
+            # sign bit with a shift instead of a masked constant.
+            $isOrdinal = if ($thunkWidth -eq 8) {
+                ($value -shr 63) -ne 0
+            }
+            else {
+                ($value -band 0x80000000) -ne 0
+            }
+            if ($isOrdinal) { continue }
 
             $hintRva = [uint32]($value -band 0x7FFFFFFF)
             $hintOffset = Convert-RvaToOffset $bytes $hintRva $sectionStart $sectionCount
