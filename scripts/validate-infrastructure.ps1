@@ -47,6 +47,21 @@ foreach ($xmlFile in $xmlFiles) {
 }
 Write-Output "Parsed $($xmlFiles.Count) installer XML file(s)."
 
+$productSource = Join-Path $installerDir 'Product.wxs'
+if (-not (Test-Path -LiteralPath $productSource -PathType Leaf)) {
+    [void]$problems.Add('missing MSI source: installer/Product.wxs')
+}
+else {
+    $productText = Get-Content -LiteralPath $productSource -Raw
+    if ($productText -notmatch 'Register-FluxFpsTask\.ps1' -or
+        $productText -notmatch 'Unregister-FluxFpsTask\.ps1') {
+        [void]$problems.Add('Product.wxs must install both Task Scheduler scripts')
+    }
+    if ($productText -notmatch 'UnregisterTasks') {
+        [void]$problems.Add('Product.wxs must restore isolation state on uninstall')
+    }
+}
+
 $wingetDir = Join-Path $root 'packaging/winget'
 $expectedManifests = @(
     'm1nuzz.flux-fps.yaml',
@@ -65,6 +80,13 @@ foreach ($manifest in $expectedManifests) {
     }
     if ($text -notmatch 'PackageVersion:') {
         [void]$problems.Add("$manifest: missing PackageVersion")
+    }
+    if ($text -notmatch 'ManifestVersion:') {
+        [void]$problems.Add("$manifest: missing ManifestVersion")
+    }
+    if ($manifest -like '*.installer.yaml' -and
+        ($text -notmatch 'InstallerUrl:' -or $text -notmatch 'InstallerSha256:')) {
+        [void]$problems.Add("$manifest: missing InstallerUrl or InstallerSha256")
     }
 }
 Write-Output "Checked $($expectedManifests.Count) winget manifest(s)."

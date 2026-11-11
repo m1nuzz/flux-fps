@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+PackageIdentifier: m1nuzz.flux-fps
+PackageVersion: 0.1.0
+PackageLocale: en-US
+Publisher: m1nuzz
+PublisherUrl: https://github.com/m1nuzz/flux-fps
+PublisherSupportUrl: https://github.com/m1nuzz/flux-fps/issues
+PackageName: flux-fps
+PackageUrl: https://github.com/m1nuzz/flux-fps
+License: MIT
+ShortDescription: User-mode Windows 11 game optimizer
+Description: |-
+  flux-fps tunes the operating system so games run in a clean environment:
+  CPU Set isolation for background processes, low-priority standby list
+  purges, latency telemetry and an advisory FPS cap. The resident application
+  is user-mode only: no driver loading, no game memory access, no DLL
+  injection. An elevated helper process is started through Task Scheduler.
+Moniker: flux-fps
+Tags:
+  - gaming
+  - performance
+  - latency
+  - frametime
+  - windows-11
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

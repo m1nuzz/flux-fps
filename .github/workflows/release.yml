@@ -1,5 +1,5 @@
-# Release workflow: every vX.Y.Z tag builds all three binaries and attaches
-# them to the GitHub release (RF p.9.4 - resident, setup, master).
+# Release workflow: a vX.Y.Z tag builds the signed-to-be resident MSI plus
+# the two portable tools. Exactly three assets are published (AGENTS.md).
 name: Release
 
 on:
@@ -20,18 +20,43 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Build release binaries
-        run: cargo build --release --locked
+        run: cargo build --release --locked --workspace
 
-      - name: Package assets (one zip per binary)
+      - name: Validate installer infrastructure
+        shell: pwsh
+        run: ./scripts/validate-infrastructure.ps1
+
+      # Hard invariant: publish only a resident binary that passed the PE
+      # import-table audit (no driver loading, game memory access or injection).
+      - name: Audit resident import table
+        shell: pwsh
+        run: ./scripts/audit-import-table.ps1 -BinaryPath target/release/flux-fps.exe
+
+      - name: Install WiX v4 CLI
+        run: dotnet tool install --tool-path ./wix-tool wix --version 4.0.6
+
+      - name: Build MSI and package portable tools
         shell: pwsh
         run: |
-          New-Item -ItemType Directory dist | Out-Null
-          Copy-Item target/release/flux-fps.exe dist/
-          Copy-Item target/release/flux-fps-setup.exe dist/
-          Copy-Item target/release/flux-fps-master.exe dist/
-          Compress-Archive -Path target/release/flux-fps.exe -DestinationPath dist/flux-fps.zip
+          $ErrorActionPreference = 'Stop'
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          New-Item -ItemType Directory -Force dist | Out-Null
+
+          ./wix-tool/wix.exe build ./installer/Product.wxs -arch x64 `
+            -d ProductVersion=$version `
+            -d ResidentExe=../target/release/flux-fps.exe `
+            -o ./dist/flux-fps.msi
+          if (-not (Test-Path ./dist/flux-fps.msi)) { throw 'WiX did not produce an MSI' }
+
           Compress-Archive -Path target/release/flux-fps-setup.exe -DestinationPath dist/flux-fps-setup.zip
           Compress-Archive -Path target/release/flux-fps-master.exe -DestinationPath dist/flux-fps-master.zip
+
+          # Refresh the winget manifests for this tag and expose the hash in
+          # the release notes. Signing is not configured yet (docs/SIGNING.md).
+          ./scripts/Update-WingetManifest.ps1 -MsiPath ./dist/flux-fps.msi -Version $version
+          $hash = (Get-FileHash ./dist/flux-fps.msi -Algorithm SHA256).Hash.ToLowerInvariant()
+          "MSI_SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
           Get-ChildItem dist | Select-Object Name, Length
 
       - name: Create release and upload assets
@@ -39,7 +64,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          gh release create $env:GITHUB_REF_NAME `
-            --title "flux-fps $env:GITHUB_REF_NAME" `
-            --notes "Concept build. All three binaries are attached: flux-fps.zip (resident), flux-fps-setup.zip (baseline wizard), flux-fps-master.zip (calibration suite). Unsigned builds - SmartScreen will warn." `
-            dist/flux-fps.zip dist/flux-fps-setup.zip dist/flux-fps-master.zip
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $notes = @"
+          flux-fps $tag
+
+          Assets:
+          - flux-fps.msi - resident tray/Core Engine installer (WiX v4, registers the logon tasks)
+          - flux-fps-setup.zip - portable baseline wizard
+          - flux-fps-master.zip - portable calibration and A/B validation suite
+
+          MSI SHA256: $env:MSI_SHA256
+
+          Builds are unsigned until SignPath is configured (see docs/SIGNING.md);
+          SmartScreen will warn. Verify the hash above before running the MSI.
+          "@
+          $ghArgs = @('release', 'create', $tag, '--title', "flux-fps $tag", '--notes', $notes)
+          if ($tag -match '-') { $ghArgs += '--prerelease' }
+          $ghArgs += @('dist/flux-fps.msi', 'dist/flux-fps-setup.zip', 'dist/flux-fps-master.zip')
+          & gh @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed with $LASTEXITCODE" }

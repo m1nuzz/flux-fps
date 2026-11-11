@@ -362,8 +362,11 @@ impl Component for FluxFpsApp {
             }
             Message::SetAutoStart(on) => {
                 self.settings.config.auto_start = on;
-                self.settings.status =
-                    "Auto-start is applied by the helper at the next logon.".into();
+                self.settings.status = concat!(
+                    "Save, then re-run flux-fps-setup --apply from an elevated ",
+                    "prompt to update the tray logon task."
+                )
+                .into();
             }
             Message::SaveSettings => {
                 self.settings.status = match self.settings.config.save(self.config_path.as_path()) {

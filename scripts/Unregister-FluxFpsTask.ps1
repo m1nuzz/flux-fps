@@ -1,29 +1,39 @@
 <#
 .SYNOPSIS
-Removes the elevated flux-fps helper task and restores system state.
+Removes the flux-fps logon tasks and restores system state.
 
 .DESCRIPTION
 Called by the MSI uninstall custom action and by
-`flux-fps-setup.exe --restore`. Restore is mandatory: any background CPU Set
-isolation applied by the helper is undone before the product is removed.
+`flux-fps-setup.exe --restore`. Both the elevated helper task and the
+unelevated tray task are removed. Restore is mandatory: any background CPU
+Set isolation applied by the helper is undone before the product is removed.
 #>
 [CmdletBinding()]
 param(
     [string]$TaskName = 'FluxFps Helper',
+    [string]$TrayTaskName = 'FluxFps Tray',
     [string]$ExePath = '',
     [switch]$SkipRestore
 )
 
 $ErrorActionPreference = 'Stop'
 
-$existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-if ($null -ne $existing) {
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-    Write-Output "Removed scheduled task '$TaskName'."
+function Remove-FluxFpsTask {
+    param([string]$Name)
+
+    $existing = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+    if ($null -ne $existing) {
+        Stop-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $Name -Confirm:$false
+        Write-Output "Removed scheduled task '$Name'."
+    }
+    else {
+        Write-Output "Scheduled task '$Name' was not present."
+    }
 }
-else {
-    Write-Output "Scheduled task '$TaskName' was not present."
-}
+
+Remove-FluxFpsTask -Name $TaskName
+Remove-FluxFpsTask -Name $TrayTaskName
 
 if ($SkipRestore) {
     Write-Output 'Restore skipped by request.'

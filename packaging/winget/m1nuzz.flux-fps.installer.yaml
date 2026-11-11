@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# The InstallerSha256 value is a placeholder. Run
+# scripts/Update-WingetManifest.ps1 -MsiPath <release MSI> -Version <tag>
+# before submitting these manifests to the winget-pkgs repository.
+PackageIdentifier: m1nuzz.flux-fps
+PackageVersion: 0.1.0
+ManifestType: installer
+ManifestVersion: 1.10.0
+MinimumOSVersion: 10.0.22000.0
+Platform:
+  - Windows.Desktop
+InstallerType: wix
+Scope: machine
+InstallModes:
+  - interactive
+  - silent
+UpgradeBehavior: install
+InstallerSwitches:
+  Silent: /qn /norestart
+  SilentWithProgress: /qb /norestart
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/m1nuzz/flux-fps/releases/download/v0.1.0/flux-fps.msi
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  WiX v4 MSI source for the flux-fps resident application.
+
+  Build (from the repository root):
+    wix build installer/Product.wxs -arch x64 -o dist/flux-fps.msi ^
+      -d ProductVersion=0.1.0 -d ResidentExe=../target/release/flux-fps.exe
+
+  The MSI installs only user-mode artifacts: the resident binary and the two
+  Task Scheduler scripts. Privileged operations run in the elevated helper
+  process launched by the logon task, never inside the installer itself.
+  Uninstall removes both logon tasks and calls flux-fps.exe --restore before
+  the files are deleted, so background CPU Set isolation is always undone.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="flux-fps"
+           Manufacturer="m1nuzz"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="{9F4C8A71-6C2B-4D0E-B5A3-2E7D1F8C4B60}"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <SummaryInformation Description="flux-fps Windows 11 game optimizer" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- 1 = register the tray logon task, 0 = elevated helper task only.
+         The portable wizard can change the tray task later via config.toml. -->
+    <Property Id="REGISTERTRAY" Value="1" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="flux-fps" />
+    </StandardDirectory>
+
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="ResidentFiles" Bitness="always64">
+        <File Id="FluxFpsExe" Source="$(var.ResidentExe)" KeyPath="yes" />
+        <File Id="RegisterTaskScript" Source="../scripts/Register-FluxFpsTask.ps1" />
+        <File Id="UnregisterTaskScript" Source="../scripts/Unregister-FluxFpsTask.ps1" />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- The Directory attribute is the working directory for these EXE
+         actions, so relative script and binary paths resolve inside
+         INSTALLFOLDER. No formatted properties are used here: deferred
+         custom actions cannot read session properties directly. -->
+    <CustomAction Id="RegisterTasksWithTray"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Register-FluxFpsTask.ps1 -ExePath .\flux-fps.exe -RegisterTray:$true"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+    <CustomAction Id="RegisterTasksHelperOnly"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Register-FluxFpsTask.ps1 -ExePath .\flux-fps.exe -RegisterTray:$false"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="check" />
+    <CustomAction Id="UnregisterTasks"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .\Unregister-FluxFpsTask.ps1 -ExePath .\flux-fps.exe"
+                  Execute="deferred"
+                  Impersonate="no"
+                  Return="ignore" />
+
+    <InstallExecuteSequence>
+      <Custom Action="UnregisterTasks" Before="RemoveFiles"
+              Condition="REMOVE~=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
+      <Custom Action="RegisterTasksWithTray" After="InstallFiles"
+              Condition="NOT Installed AND REGISTERTRAY = 1" />
+      <Custom Action="RegisterTasksHelperOnly" After="InstallFiles"
+              Condition="NOT Installed AND REGISTERTRAY = 0" />
+    </InstallExecuteSequence>
+
+    <Feature Id="Main" Title="flux-fps resident application" Level="1">
+      <ComponentRef Id="ResidentFiles" />
+    </Feature>
+  </Package>
+</Wix>

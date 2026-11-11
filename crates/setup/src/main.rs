@@ -1,9 +1,10 @@
 //! flux-fps-setup: portable one-time baseline wizard.
 //!
 //! User-mode only. Writes the default per-user config and (re)creates the
-//! elevated helper's at-logon scheduled task through embedded PowerShell
-//! scripts. Privileged work happens in the helper, never in this binary;
-//! there is no kernel code and no driver loading anywhere in this tool.
+//! elevated helper and unelevated tray logon tasks through embedded
+//! PowerShell scripts. Privileged work happens in the helper, never in this
+//! binary; there is no kernel code and no driver loading anywhere in this
+//! tool.
 
 use common::Config;
 use std::env;
@@ -13,24 +14,26 @@ use std::process::{Command, ExitCode};
 
 const REGISTER_SCRIPT: &str = include_str!("../../../scripts/Register-FluxFpsTask.ps1");
 const UNREGISTER_SCRIPT: &str = include_str!("../../../scripts/Unregister-FluxFpsTask.ps1");
-const TASK_NAME: &str = "FluxFps Helper";
+const HELPER_TASK: &str = "FluxFps Helper";
+const TRAY_TASK: &str = "FluxFps Tray";
 
 fn usage() {
     println!("flux-fps-setup v{}", common::VERSION);
     println!("Usage: flux-fps-setup.exe <command>");
-    println!("  --apply     write the default config and register the helper task");
-    println!("  --restore   unregister the helper task and restore isolation state");
-    println!("  --status    show config path and helper task state");
+    println!("  --apply     write the default config and register both logon tasks");
+    println!("  --restore   remove both logon tasks and restore isolation state");
+    println!("  --status    show config, auto-start and logon task state");
     println!("  --version   print the version");
     println!("  --help      print this help");
     println!();
+    println!("The tray task is registered only when config.toml has auto_start = true.");
     println!("Run --apply and --restore from an elevated prompt (task registration");
     println!("requires administrator rights). FLUX_FPS_EXE overrides the resident");
     println!("binary path used for task registration.");
 }
 
 /// Locates the installed resident binary. The portable wizard itself is never
-/// installed; it points the scheduled task at the MSI-installed executable.
+/// installed; it points the scheduled tasks at the MSI-installed executable.
 fn resident_exe() -> Option<PathBuf> {
     if let Some(path) = env::var_os("FLUX_FPS_EXE") {
         let path = PathBuf::from(path);
@@ -76,8 +79,13 @@ fn run_embedded_script(name: &str, contents: &str, args: &[String]) -> Result<()
     }
 }
 
-fn task_args() -> Vec<String> {
-    vec!["-TaskName".to_string(), TASK_NAME.to_string()]
+fn task_name_args() -> Vec<String> {
+    vec![
+        "-TaskName".to_string(),
+        HELPER_TASK.to_string(),
+        "-TrayTaskName".to_string(),
+        TRAY_TASK.to_string(),
+    ]
 }
 
 fn push_exe_arg(args: &mut Vec<String>, path: &Path) {
@@ -87,21 +95,37 @@ fn push_exe_arg(args: &mut Vec<String>, path: &Path) {
 
 fn apply() -> Result<(), String> {
     let config_path = Config::default_path().ok_or("APPDATA is unavailable")?;
-    if config_path.is_file() {
+    let existed = config_path.is_file();
+    let config = Config::load_or_default(&config_path);
+    if existed {
         println!("Config already present: {}", config_path.display());
     } else {
-        Config::default()
+        config
             .save(&config_path)
             .map_err(|e| format!("cannot write config: {e}"))?;
         println!("Wrote default config: {}", config_path.display());
     }
+    println!(
+        "Auto-start: {}",
+        if config.auto_start {
+            "enabled (tray task will be registered)"
+        } else {
+            "disabled (helper task only)"
+        }
+    );
 
     match resident_exe() {
         Some(path) => {
-            let mut args = task_args();
+            let mut args = task_name_args();
+            // A [bool] parameter needs the colon form; passing the flag and
+            // its value as two separate arguments would fail to bind.
+            args.push(format!(
+                "-RegisterTray:${}",
+                if config.auto_start { "true" } else { "false" }
+            ));
             push_exe_arg(&mut args, &path);
             run_embedded_script("register-task", REGISTER_SCRIPT, &args)?;
-            println!("Helper task registered for {}", path.display());
+            println!("Logon tasks applied for {}", path.display());
         }
         None => println!("flux-fps.exe not found; install the MSI, then run --apply again."),
     }
@@ -109,7 +133,7 @@ fn apply() -> Result<(), String> {
 }
 
 fn restore() -> Result<(), String> {
-    let mut args = task_args();
+    let mut args = task_name_args();
     if let Some(path) = resident_exe() {
         push_exe_arg(&mut args, &path);
     }
@@ -118,23 +142,32 @@ fn restore() -> Result<(), String> {
     Ok(())
 }
 
-fn status() {
-    match Config::default_path() {
-        Some(path) => println!(
-            "Config: {} ({})",
-            path.display(),
-            if path.is_file() { "present" } else { "missing" }
-        ),
-        None => println!("Config: APPDATA is unavailable"),
-    }
+fn task_state(name: &str) -> &'static str {
     match Command::new("schtasks.exe")
-        .args(["/Query", "/TN", TASK_NAME])
+        .args(["/Query", "/TN", name])
         .output()
     {
-        Ok(output) if output.status.success() => println!("Helper task: registered"),
-        Ok(_) => println!("Helper task: not registered"),
-        Err(e) => println!("Helper task: query failed ({e})"),
+        Ok(output) if output.status.success() => "registered",
+        Ok(_) => "not registered",
+        Err(_) => "query failed",
     }
+}
+
+fn status() {
+    match Config::default_path() {
+        Some(path) => {
+            println!(
+                "Config: {} ({})",
+                path.display(),
+                if path.is_file() { "present" } else { "missing" }
+            );
+            let config = Config::load_or_default(&path);
+            println!("Auto-start: {}", config.auto_start);
+        }
+        None => println!("Config: APPDATA is unavailable"),
+    }
+    println!("Helper task: {}", task_state(HELPER_TASK));
+    println!("Tray task:   {}", task_state(TRAY_TASK));
     match resident_exe() {
         Some(path) => println!("Resident binary: {}", path.display()),
         None => println!("Resident binary: not found"),
