@@ -9,8 +9,8 @@
   The MSI installs only user-mode artifacts: the resident binary and the two
   Task Scheduler scripts. Privileged operations run in the elevated helper
   process launched by the logon task, never inside the installer itself.
-  Uninstall removes both logon tasks and calls flux-fps.exe --restore before
-  the files are deleted, so background CPU Set isolation is always undone.
+  Uninstall removes both logon tasks and invokes the resident restore mode
+  before the files are deleted, so CPU Set isolation is always undone.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="flux-fps"
