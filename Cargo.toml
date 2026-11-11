@@ -21,7 +21,7 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "sync", "time"] }
 toml = "0.8"
-windows-sys = { version = "0.59", features = [
+windows-sys = { version = "0.61", features = [
     "Wdk_System_SystemServices",
     "Win32_Devices_Display",
     "Win32_Foundation",
