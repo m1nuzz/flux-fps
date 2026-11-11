@@ -132,7 +132,7 @@ pub fn write_template(dir: &Path, game: &str) -> Result<PathBuf, String> {
         runs: (0..MIN_PAIRS * 2)
             .map(|index| RunRecord {
                 id: format!("run-{:02}", index + 1),
-                variant: if index % 2 == 0 {
+                variant: if index.is_multiple_of(2) {
                     Variant::Baseline
                 } else {
                     Variant::Variant
@@ -169,12 +169,12 @@ pub fn validate(session: &Session) -> Result<(), String> {
             session.runs.len()
         ));
     }
-    if session.runs.len() % 2 != 0 {
+    if !session.runs.len().is_multiple_of(2) {
         return Err("ABAB runs must form complete pairs".into());
     }
     let first = session.runs[0].variant;
     for (index, run) in session.runs.iter().enumerate() {
-        let expected = if index % 2 == 0 {
+        let expected = if index.is_multiple_of(2) {
             first
         } else if first == Variant::Baseline {
             Variant::Variant
@@ -444,7 +444,7 @@ mod tests {
             runs: (0..runs)
                 .map(|i| RunRecord {
                     id: format!("run-{:02}", i + 1),
-                    variant: if i % 2 == 0 {
+                    variant: if i.is_multiple_of(2) {
                         Variant::Baseline
                     } else {
                         Variant::Variant
