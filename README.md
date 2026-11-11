@@ -104,6 +104,9 @@ with broken alternation, or with runs shorter than 60 s. It prints
   preflight and always refuses kernel access.
 - Built-in benchmarks usually show a smaller gain than real matches because
   there is less background interference. HAGS must stay fixed across a session.
+- Publishing a release is manual: push a `v*` tag (or run the Release workflow
+  with `publish = false` for a build-only dry run). No release is created
+  automatically.
 
 ## Development
 

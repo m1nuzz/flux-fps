@@ -33,6 +33,13 @@ format, compile, clippy, unit tests, locked workspace build, installer script
 and XML parsing, winget manifest fields, resident import-table audit and a
 WiX v4 MSI authoring build. See the CI run log in `VALIDATION.md`.
 
+The release pipeline itself was validated as a **build-only dry run**
+(`workflow_dispatch` with `publish = false`, run 43076877159): release build
+with `--locked`, infrastructure validation, resident PE import-table audit,
+WiX v4 CLI install, MSI production, both portable zips, the winget-free
+prerelease path and release-notes generation. No public release was created;
+publishing requires an explicit tag push by the repository owner.
+
 ### Known limitations
 
 - Builds are unsigned until SignPath is configured. SmartScreen will warn;
