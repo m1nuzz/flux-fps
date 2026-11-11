@@ -5,7 +5,10 @@
 //! resident app's view tree or startup path, not in the environment. Build it
 //! with `cargo build -p flux-fps --example smoke_window`.
 
-use windows_reactor::{App, Button, Component, ComponentContext, StackPanel, TextBlock, View};
+use windows_reactor::{
+    App, Button, ChildrenControl, Component, ComponentContext, ContentControl, StackPanel,
+    TextBlock, View, ViewContext,
+};
 
 struct Counter {
     count: u32,
