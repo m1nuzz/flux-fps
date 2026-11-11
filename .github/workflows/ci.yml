@@ -45,7 +45,7 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           ./wix-tool/wix.exe build ./installer/Product.wxs -arch x64 `
             -d ProductVersion=0.1.0 `
-            -d ResidentExe=../target/debug/flux-fps.exe `
+            -d ResidentExe=target/debug/flux-fps.exe `
             -o ./dist/flux-fps.msi
           if (-not (Test-Path ./dist/flux-fps.msi)) { throw 'WiX did not produce an MSI' }
           Get-Item ./dist/flux-fps.msi | Select-Object Name, Length

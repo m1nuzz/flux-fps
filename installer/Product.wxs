@@ -4,7 +4,10 @@
 
   Build (from the repository root):
     wix build installer/Product.wxs -arch x64 -o dist/flux-fps.msi ^
-      -d ProductVersion=0.1.0 -d ResidentExe=../target/release/flux-fps.exe
+      -d ProductVersion=0.1.0 -d ResidentExe=target/release/flux-fps.exe
+
+  WiX v4 resolves File/@Source relative to the working directory, not to the
+  directory containing this file, so every source path is repo-root relative.
 
   The MSI installs only user-mode artifacts: the resident binary and the two
   Task Scheduler scripts. Privileged operations run in the elevated helper
@@ -36,8 +39,8 @@
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="ResidentFiles" Bitness="always64">
         <File Id="FluxFpsExe" Source="$(var.ResidentExe)" KeyPath="yes" />
-        <File Id="RegisterTaskScript" Source="../scripts/Register-FluxFpsTask.ps1" />
-        <File Id="UnregisterTaskScript" Source="../scripts/Unregister-FluxFpsTask.ps1" />
+        <File Id="RegisterTaskScript" Source="scripts/Register-FluxFpsTask.ps1" />
+        <File Id="UnregisterTaskScript" Source="scripts/Unregister-FluxFpsTask.ps1" />
         <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
       </Component>
     </DirectoryRef>

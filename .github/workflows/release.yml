@@ -44,7 +44,7 @@ jobs:
 
           ./wix-tool/wix.exe build ./installer/Product.wxs -arch x64 `
             -d ProductVersion=$version `
-            -d ResidentExe=../target/release/flux-fps.exe `
+            -d ResidentExe=target/release/flux-fps.exe `
             -o ./dist/flux-fps.msi
           if (-not (Test-Path ./dist/flux-fps.msi)) { throw 'WiX did not produce an MSI' }
 
