@@ -9,8 +9,8 @@
 use crate::etw_dpc;
 use crate::etw_present;
 use crate::game_mode::GameModeManager;
+use crate::helper;
 use crate::memory;
-use crate::memory_purge;
 use crate::pacing_advisor::{AdvisorLimits, AdvisorParams, LimitAdvisor};
 use crate::telemetry::TelemetryHub;
 use common::{Command, Config, FrametimeStats, PacerAdvice, TelemetrySnapshot};
@@ -104,9 +104,7 @@ pub async fn run(
                 let elapsed = last_purge.map(|t| t.elapsed());
                 if memory::should_purge(&stats, &config, elapsed) {
                     last_purge = Some(Instant::now());
-                    match tokio::task::spawn_blocking(memory_purge::purge_low_priority_standby_list)
-                        .await
-                    {
+                    match tokio::task::spawn_blocking(helper::purge_standby).await {
                         Ok(Ok(())) => eprintln!(
                             "[flux-fps] standby purge done (commit {}%, avail {} MB)",
                             stats.commit_percent, stats.available_mb
@@ -188,9 +186,7 @@ pub async fn run(
                     }
                     Some(Command::PurgeStandbyNow) => {
                         last_purge = Some(Instant::now());
-                        let _ = tokio::task::spawn_blocking(
-                            memory_purge::purge_low_priority_standby_list,
-                        ).await;
+                        let _ = tokio::task::spawn_blocking(helper::purge_standby).await;
                     }
                     Some(Command::SetFpsCap(cap)) => config.fps_cap = cap,
                     Some(Command::SetPacerEnabled(on)) => config.pacer_enabled = on,

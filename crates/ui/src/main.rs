@@ -12,8 +12,14 @@
 //! The settings panel edits a local `Config` draft: every change is sent to
 //! the engine immediately (so it takes effect without a restart) and an
 //! explicit Save persists it to `%APPDATA%/flux-fps/config.toml`.
+//!
+//! The same executable also hosts the elevated helper (`--helper`) and the
+//! uninstall restore hook (`--restore`); both are dispatched before any UI
+//! or engine thread is created.
 
-use common::{normalize_whitelist_entry, Command, Config, TelemetrySnapshot};
+use common::{
+    normalize_whitelist_entry, Command, Config, HelperReply, HelperRequest, TelemetrySnapshot,
+};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
@@ -75,6 +81,10 @@ pub enum Message {
     SetAutoStart(bool),
     /// Persist the current settings draft to disk.
     SaveSettings,
+    /// Probe the elevated helper pipe on a background thread.
+    CheckHelper,
+    /// Result of the helper probe, displayed in the settings panel.
+    HelperStatus(String),
 }
 
 /// Local editable copy of the configuration plus transient UI state.
@@ -218,6 +228,9 @@ impl FluxFpsApp {
             Button::new()
                 .on_click(context.sender().message(Message::SaveSettings))
                 .content("Save settings"),
+            Button::new()
+                .on_click(context.sender().message(Message::CheckHelper))
+                .content("Check helper connection"),
             TextBlock::new().text(self.settings.status.clone()),
         ));
 
@@ -358,6 +371,28 @@ impl Component for FluxFpsApp {
                     Err(e) => format!("Save failed: {e}"),
                 };
             }
+            Message::CheckHelper => {
+                // The blocking Win32 pipe calls must never run on the UI
+                // thread; the reactor thread pool returns a normal Message.
+                context.spawn_background(|_| {
+                    let status = match engine::pipe::PipeClient::connect() {
+                        Ok(client) => match client.call(&HelperRequest::Ping) {
+                            Ok(HelperReply::Pong { version, elevated }) => format!(
+                                "Helper connected (protocol v{version}, elevated: {elevated})."
+                            ),
+                            Ok(HelperReply::Ok) | Ok(HelperReply::Error(_)) => {
+                                "Helper returned an unexpected reply.".into()
+                            }
+                            Err(e) => format!("Helper request failed: {e}"),
+                        },
+                        Err(e) => {
+                            format!("Helper unavailable ({e}); user-mode fallback active.")
+                        }
+                    };
+                    Message::HelperStatus(status)
+                });
+            }
+            Message::HelperStatus(status) => self.settings.status = status,
         }
     }
 
@@ -417,6 +452,33 @@ fn spawn_telemetry_poll(
 }
 
 fn main() {
+    // Non-UI modes are dispatched before any window, tray or engine thread
+    // exists. `--helper` is launched elevated by the Task Scheduler task;
+    // `--restore` is called by the MSI uninstall custom action.
+    match std::env::args().nth(1).as_deref() {
+        Some("--helper") => {
+            if let Err(e) = engine::helper::run() {
+                eprintln!("[flux-fps] helper failed: {e}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        Some("--restore") => {
+            if let Err(e) = engine::helper::restore_all() {
+                eprintln!("[flux-fps] restore failed: {e}");
+                std::process::exit(1);
+            }
+            println!("[flux-fps] isolation state restored.");
+            return;
+        }
+        Some("--version") => {
+            println!("flux-fps v{}", common::VERSION);
+            return;
+        }
+        Some(other) => eprintln!("[flux-fps] ignoring unknown argument: {other}"),
+        None => {}
+    }
+
     println!("flux-fps v{} starting", common::VERSION);
 
     let config_path = Config::default_path().unwrap_or_else(|| {

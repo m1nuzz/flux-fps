@@ -3,6 +3,7 @@
 
 use crate::cpu_isolation;
 use crate::error::EngineError;
+use crate::helper;
 use crate::process::ProcessEntry;
 use std::collections::{HashMap, HashSet};
 
@@ -72,9 +73,7 @@ impl GameModeManager {
             if self.managed.contains_key(pid) {
                 continue;
             }
-            if let Err(e) =
-                cpu_isolation::apply_background_isolation(*pid, &self.background_cpu_set_ids)
-            {
+            if let Err(e) = helper::apply_isolation(*pid, &self.background_cpu_set_ids) {
                 on_error(*pid, &e);
             } else {
                 self.managed.insert(*pid, name.clone());
@@ -89,7 +88,7 @@ impl GameModeManager {
             .copied()
             .collect();
         for pid in gone {
-            if let Err(e) = cpu_isolation::remove_background_isolation(pid) {
+            if let Err(e) = helper::remove_isolation(pid) {
                 // Process is gone anyway; the OS cleaned up its settings.
                 on_error(pid, &e);
             }
@@ -100,7 +99,7 @@ impl GameModeManager {
     /// Removes isolation from all managed processes (Game Mode OFF).
     pub fn reset(&mut self, on_error: &mut dyn FnMut(u32, &EngineError)) {
         for pid in self.managed.keys().copied().collect::<Vec<u32>>() {
-            if let Err(e) = cpu_isolation::remove_background_isolation(pid) {
+            if let Err(e) = helper::remove_isolation(pid) {
                 on_error(pid, &e);
             }
         }

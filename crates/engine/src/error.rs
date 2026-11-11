@@ -16,6 +16,10 @@ pub enum EngineError {
     #[error("process {0} not accessible")]
     ProcessInaccessible(u32),
 
+    /// The elevated helper rejected a request.
+    #[error("helper: {0}")]
+    Helper(String),
+
     #[error("invalid system state: {0}")]
     InvalidState(&'static str),
 }
