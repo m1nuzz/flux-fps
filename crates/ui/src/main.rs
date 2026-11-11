@@ -25,9 +25,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{mpsc, watch};
 use windows_reactor::{
-    App, Button, ChildrenControl, Component, ComponentContext, ContentControl, KeyedView,
-    Orientation, StackPanel, TextBlock, TextBox, ToggleSwitch, View,
+    App, Border, Brush, Button, ChildrenControl, Component, ComponentContext, ContentControl,
+    CornerRadius, FontWeight, Grid, GridChildExt, GridLength, KeyedView, Orientation, ScrollViewer,
+    StackPanel, TextBlock, TextBox, TextWrapping, ThemeBrush, Thickness, ToggleSwitch, View,
+    ViewContext, WindowConstraints, WindowVisuals,
 };
+// Grid placement and margins come from the LayoutControl trait family.
+use windows_reactor::LayoutControl as _;
 
 mod chart;
 mod tray;
@@ -137,9 +141,10 @@ impl FluxFpsApp {
         }
     }
 
-    /// Settings section. Nested panels keep every `children()` tuple below
-    /// the reactor's static 16-element limit.
-    fn settings_view(&self, context: &mut windows_reactor::ViewContext<Self>) -> View {
+    /// Settings column: four labelled sections stacked inside the settings
+    /// card. Nested panels keep every `children()` tuple below the reactor's
+    /// static 16-element limit.
+    fn settings_view(&self, context: &mut ViewContext<Self>) -> View {
         let config = &self.settings.config;
 
         let rows: Vec<KeyedView> = config
@@ -165,8 +170,11 @@ impl FluxFpsApp {
             .collect();
         let whitelist_rows = StackPanel::new().spacing(2.0).keyed_children(rows);
 
-        let whitelist_section = StackPanel::new().spacing(4.0).children((
-            TextBlock::new().text("Protected games (never isolated):"),
+        let whitelist_section = StackPanel::new().spacing(8.0).children((
+            section_header("Protected games"),
+            TextBlock::new()
+                .text("These processes are never isolated by Game Mode.")
+                .text_wrapping(TextWrapping::Wrap),
             whitelist_rows,
             StackPanel::new()
                 .orientation(Orientation::Horizontal)
@@ -186,9 +194,10 @@ impl FluxFpsApp {
                 )),
         ));
 
-        let purge_section = StackPanel::new().spacing(4.0).children((
-            TextBlock::new().text(format!(
-                "Purge commit threshold: {}%",
+        let purge_section = StackPanel::new().spacing(8.0).children((
+            section_header("Memory purge"),
+            setting_line(format!(
+                "Commit threshold: {}%",
                 config.purge_commit_threshold_percent
             )),
             adjustment_row(
@@ -198,8 +207,8 @@ impl FluxFpsApp {
                 "-5%",
                 "+5%",
             ),
-            TextBlock::new().text(format!(
-                "Purge available-memory threshold: {} MB",
+            setting_line(format!(
+                "Available-memory threshold: {} MB",
                 config.purge_available_threshold_mb
             )),
             adjustment_row(
@@ -209,7 +218,10 @@ impl FluxFpsApp {
                 "-256 MB",
                 "+256 MB",
             ),
-            TextBlock::new().text(format!("Purge cooldown: {} s", config.purge_cooldown_secs)),
+            setting_line(format!(
+                "Cooldown between purges: {} s",
+                config.purge_cooldown_secs
+            )),
             adjustment_row(
                 context,
                 Message::AdjustPurgeCooldown(-10),
@@ -219,15 +231,21 @@ impl FluxFpsApp {
             ),
         ));
 
-        let pacer_section = StackPanel::new().spacing(4.0).children((
-            TextBlock::new().text("Adaptive FPS limit advisor:"),
-            ToggleSwitch::new().is_on(config.pacer_enabled).on_toggled(
-                context
-                    .sender()
-                    .callback::<bool, _>(Message::SetPacerEnabled),
-            ),
-            TextBlock::new().text(format!(
-                "Pacer safety factor: {:.2} (higher = more conservative)",
+        let pacer_section = StackPanel::new().spacing(8.0).children((
+            section_header("Adaptive FPS limit advisor"),
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(8.0)
+                .children((
+                    ToggleSwitch::new().is_on(config.pacer_enabled).on_toggled(
+                        context
+                            .sender()
+                            .callback::<bool, _>(Message::SetPacerEnabled),
+                    ),
+                    setting_line("Pacer"),
+                )),
+            setting_line(format!(
+                "Safety factor: {:.2} (higher = more conservative)",
                 config.pacer_safety_factor
             )),
             adjustment_row(
@@ -239,32 +257,76 @@ impl FluxFpsApp {
             ),
         ));
 
-        let startup_section = StackPanel::new().spacing(4.0).children((
-            TextBlock::new().text("Start with Windows (applied by installer/helper):"),
-            ToggleSwitch::new()
-                .is_on(config.auto_start)
-                .on_toggled(context.sender().callback::<bool, _>(Message::SetAutoStart)),
-            Button::new()
-                .on_click(context.sender().message(Message::SaveSettings))
-                .content("Save settings"),
-            Button::new()
-                .on_click(context.sender().message(Message::CheckHelper))
-                .content("Check helper connection"),
-            TextBlock::new().text(self.profile_summary.clone()),
+        let startup_section = StackPanel::new().spacing(8.0).children((
+            section_header("Startup and service"),
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(8.0)
+                .children((
+                    ToggleSwitch::new()
+                        .is_on(config.auto_start)
+                        .on_toggled(context.sender().callback::<bool, _>(Message::SetAutoStart)),
+                    setting_line("Start with Windows (applied by installer/helper)"),
+                )),
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(8.0)
+                .children((
+                    Button::new()
+                        .on_click(context.sender().message(Message::SaveSettings))
+                        .content("Save settings"),
+                    Button::new()
+                        .on_click(context.sender().message(Message::CheckHelper))
+                        .content("Check helper connection"),
+                )),
+            setting_line(self.profile_summary.clone()),
             Button::new()
                 .on_click(context.sender().message(Message::RefreshProfile))
                 .content("Refresh calibration status"),
-            TextBlock::new().text(self.settings.status.clone()),
         ));
 
-        StackPanel::new().spacing(8.0).children((
-            TextBlock::new().text("Settings"),
+        StackPanel::new().spacing(14.0).children((
+            section_header("Settings"),
             whitelist_section,
             purge_section,
             pacer_section,
             startup_section,
+            TextBlock::new()
+                .text(self.settings.status.clone())
+                .text_wrapping(TextWrapping::Wrap),
         ))
     }
+}
+
+/// Section heading inside a card: slightly larger, semibold, accent-colored.
+fn section_header(text: impl Into<String>) -> View {
+    TextBlock::new()
+        .text(text.into())
+        .font_size(15.0)
+        .font_weight(FontWeight::SEMI_BOLD)
+        .foreground(Brush::Theme(ThemeBrush::Accent))
+        .into()
+}
+
+/// Regular body line inside a card, wrapping instead of clipping.
+fn setting_line(text: impl Into<String>) -> View {
+    TextBlock::new()
+        .text(text.into())
+        .text_wrapping(TextWrapping::Wrap)
+        .into()
+}
+
+/// Rounded themed surface: the visual unit that fills one column of the root
+/// grid. Grid placement must be applied to the returned `Border` (via
+/// `grid_row`/`grid_column`) before calling `.content(...)`, because
+/// `content()` consumes the control into a plain `View`.
+fn card_shell() -> Border {
+    Border::new()
+        .background(Brush::Theme(ThemeBrush::CardBackground))
+        .border_brush(Brush::Theme(ThemeBrush::CardStroke))
+        .border_thickness(Thickness::uniform(1.0))
+        .corner_radius(CornerRadius::uniform(8.0))
+        .padding(Thickness::uniform(14.0))
 }
 
 /// Two-button +/- row used by every numeric setting.
@@ -424,46 +486,106 @@ impl Component for FluxFpsApp {
         }
     }
 
-    fn view(&self, _input: &Self::Input, context: &mut windows_reactor::ViewContext<Self>) -> View {
+    fn view(&self, _input: &Self::Input, context: &mut ViewContext<Self>) -> View {
+        // Window identity and sizing (declared per publication by the host).
+        context.window_title(format!("flux-fps v{}", common::VERSION));
+        context.window_visuals(WindowVisuals::new().client_size(1080.0, 700.0).constraints(
+            WindowConstraints {
+                min_width: Some(900.0),
+                min_height: Some(560.0),
+                ..Default::default()
+            },
+        ));
+
         let dpc_peak = self
             .latest
             .dpc_max_us
             .iter()
             .copied()
             .fold(0.0f32, f32::max);
-        StackPanel::new().spacing(8.0).children((
-            TextBlock::new().text(format!("flux-fps v{}", common::VERSION)),
-            TextBlock::new().text(format!(
+
+        // Header strip spanning both columns: title + live status summary.
+        // Grid placement is applied before `children()` converts the panel
+        // into a `View`.
+        let header = StackPanel::new()
+            .spacing(2.0)
+            .grid_row(0)
+            .grid_column_span(2)
+            .children((
+                TextBlock::new()
+                    .text("flux-fps")
+                    .font_size(24.0)
+                    .font_weight(FontWeight::BOLD)
+                    .foreground(Brush::Theme(ThemeBrush::Accent)),
+                TextBlock::new().text(format!(
+                    "v{} — commit {:.0}% · {} MB available · Game Mode: {} processes managed",
+                    common::VERSION,
+                    self.latest.commit_percent,
+                    self.latest.available_mb,
+                    self.latest.managed_pids.len()
+                )),
+            ));
+
+        // Left column: live telemetry.
+        let telemetry_content = StackPanel::new().spacing(10.0).children((
+            section_header("Live telemetry"),
+            setting_line(format!(
                 "Memory: commit {:.0}%, available {} MB",
                 self.latest.commit_percent, self.latest.available_mb
             )),
-            TextBlock::new().text(format!(
+            setting_line(format!(
                 "Game Mode: {} background processes managed",
                 self.latest.managed_pids.len()
             )),
-            TextBlock::new().text("CPU cores (blue = P, green = E):"),
+            section_header("CPU cores (blue = P, green = E)"),
             chart::cpu_map(&self.latest.cpu_cores),
-            TextBlock::new().text(format!("Peak DPC: {dpc_peak:.1} us")),
+            section_header("DPC latency (2 s window)"),
+            setting_line(format!("Peak DPC: {dpc_peak:.1} us")),
             chart::dpc_chart(&self.latest),
-            TextBlock::new().text(chart::frametime_text(&self.latest.frametimes)),
-            TextBlock::new().text(chart::pacer_text(&self.latest.pacer)),
-            TextBlock::new().text(format!("FPS cap: {:?}", self.latest.fps_cap)),
-            Button::new()
-                .on_click(context.sender().message(Message::PurgeStandbyNow))
-                .content("Purge standby list now"),
-            Button::new()
-                .on_click(context.sender().message(if self.latest.game_mode_active {
-                    Message::GameModeOff
-                } else {
-                    Message::GameModeOn
-                }))
-                .content(if self.latest.game_mode_active {
-                    "Disable Game Mode"
-                } else {
-                    "Enable Game Mode"
-                }),
-            self.settings_view(context),
-        ))
+            section_header("Frame pacing"),
+            setting_line(chart::frametime_text(&self.latest.frametimes)),
+            setting_line(chart::pacer_text(&self.latest.pacer)),
+            setting_line(format!("FPS cap: {:?}", self.latest.fps_cap)),
+            StackPanel::new()
+                .orientation(Orientation::Horizontal)
+                .spacing(8.0)
+                .children((
+                    Button::new()
+                        .on_click(context.sender().message(Message::PurgeStandbyNow))
+                        .content("Purge standby list now"),
+                    Button::new()
+                        .on_click(context.sender().message(if self.latest.game_mode_active {
+                            Message::GameModeOff
+                        } else {
+                            Message::GameModeOn
+                        }))
+                        .content(if self.latest.game_mode_active {
+                            "Disable Game Mode"
+                        } else {
+                            "Enable Game Mode"
+                        }),
+                )),
+        ));
+
+        // Root grid: header row + two stretch columns of cards. Card content
+        // is attached after grid placement because `content()` yields a `View`.
+        Grid::new()
+            .rows([GridLength::Auto, GridLength::STAR])
+            .columns([GridLength::STAR, GridLength::STAR])
+            .row_spacing(12.0)
+            .column_spacing(12.0)
+            .margin(Thickness::uniform(14.0))
+            .children((
+                header,
+                card_shell()
+                    .grid_row(1)
+                    .grid_column(0)
+                    .content(ScrollViewer::new().content(telemetry_content)),
+                card_shell()
+                    .grid_row(1)
+                    .grid_column(1)
+                    .content(ScrollViewer::new().content(self.settings_view(context))),
+            ))
     }
 }
 
