@@ -31,7 +31,10 @@ impl GameModeManager {
         Ok(Self {
             managed: HashMap::new(),
             background_cpu_set_ids,
-            enabled: true,
+            // Game Mode stays OFF until the user toggles it: applying CPU Set
+            // isolation to background processes must never happen silently at
+            // startup without explicit consent.
+            enabled: false,
         })
     }
 

@@ -27,6 +27,11 @@ jobs:
         run: cargo test --workspace
       - name: Build binaries for packaging checks
         run: cargo build --workspace --locked
+      # Phase 6 UI gate: the resident app must open a visible window, not
+      # just run its engine threads. App stdout/stderr are printed on failure.
+      - name: Smoke test the tray UI window
+        shell: pwsh
+        run: ./scripts/smoke-ui.ps1 -BinaryPath target/debug/flux-fps.exe
       - name: Validate installer infrastructure
         shell: pwsh
         run: ./scripts/validate-infrastructure.ps1
