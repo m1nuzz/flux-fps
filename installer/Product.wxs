@@ -36,12 +36,20 @@
       <Directory Id="INSTALLFOLDER" Name="flux-fps" />
     </StandardDirectory>
 
+    <!-- One file per component: WiX v4 only allows an auto-generated GUID
+         when a component has a single file or a versioned keypath. Rust
+         binaries have no version resource, so grouping these files would
+         fail WIX0367. -->
     <DirectoryRef Id="INSTALLFOLDER">
-      <Component Id="ResidentFiles" Bitness="always64">
+      <Component Id="ResidentBinary" Bitness="always64">
         <File Id="FluxFpsExe" Source="$(var.ResidentExe)" KeyPath="yes" />
-        <File Id="RegisterTaskScript" Source="scripts/Register-FluxFpsTask.ps1" />
-        <File Id="UnregisterTaskScript" Source="scripts/Unregister-FluxFpsTask.ps1" />
         <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+      </Component>
+      <Component Id="RegisterScript" Bitness="always64">
+        <File Id="RegisterTaskScript" Source="scripts/Register-FluxFpsTask.ps1" KeyPath="yes" />
+      </Component>
+      <Component Id="UnregisterScript" Bitness="always64">
+        <File Id="UnregisterTaskScript" Source="scripts/Unregister-FluxFpsTask.ps1" KeyPath="yes" />
       </Component>
     </DirectoryRef>
 
@@ -78,7 +86,9 @@
     </InstallExecuteSequence>
 
     <Feature Id="Main" Title="flux-fps resident application" Level="1">
-      <ComponentRef Id="ResidentFiles" />
+      <ComponentRef Id="ResidentBinary" />
+      <ComponentRef Id="RegisterScript" />
+      <ComponentRef Id="UnregisterScript" />
     </Feature>
   </Package>
 </Wix>
