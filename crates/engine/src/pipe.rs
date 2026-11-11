@@ -104,7 +104,9 @@ pub fn current_user_sid() -> Result<String, EngineError> {
     if unsafe { ConvertSidToStringSidW(sid, &mut text) } == 0 || text.is_null() {
         return Err(EngineError::win32("ConvertSidToStringSidW"));
     }
-    let result = wide_to_string(text);
+    // SAFETY: text is a NUL-terminated buffer allocated by the callee and is
+    // still alive until LocalFree below.
+    let result = unsafe { wide_to_string(text) };
     // SAFETY: text came from ConvertSidToStringSidW (LocalAlloc).
     unsafe { LocalFree(text as HLOCAL) };
     Ok(result)
