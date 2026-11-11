@@ -519,7 +519,10 @@ fn main() {
     // Tray icon on its own message-only window thread; shares the command
     // channel (try_send only, never blocks).
     let tray_handle = tray::spawn(commands.clone());
-    let (ready_tx, ready_rx) = std::sync::mpsc::channel::<watch::Receiver<TelemetrySnapshot>>();
+    // The telemetry watch channel is created before the engine thread starts,
+    // so the UI can mount its window immediately instead of waiting for the
+    // engine loop.
+    let (hub, telemetry) = engine::telemetry::TelemetryHub::new();
 
     // The Core Engine runs on a dedicated thread with its own tokio runtime.
     std::thread::Builder::new()
@@ -527,23 +530,14 @@ fn main() {
         .spawn(move || {
             let runtime = tokio::runtime::Runtime::new().expect("tokio runtime");
             runtime.block_on(async move {
-                match engine::runtime::run(config, command_rx).await {
-                    Ok(telemetry) => {
-                        let _ = ready_tx.send(telemetry);
-                        // Keep this thread alive while the engine runs; the
-                        // runtime loop exits when the UI sends Shutdown.
-                        std::thread::sleep(std::time::Duration::from_secs(u64::MAX));
-                    }
-                    Err(e) => {
-                        eprintln!("[flux-fps] engine failed: {e}");
-                        std::process::exit(1);
-                    }
+                if let Err(e) = engine::runtime::run(config, command_rx, hub).await {
+                    eprintln!("[flux-fps] engine failed: {e}");
+                    std::process::exit(1);
                 }
             });
         })
         .expect("engine thread");
 
-    let telemetry = ready_rx.recv().expect("engine telemetry channel");
     // Blocks on the WinUI message loop until the window closes.
     let result = App::run_component::<FluxFpsApp>(EngineHandles {
         commands: Arc::new(commands),

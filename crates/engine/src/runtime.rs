@@ -18,16 +18,18 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, watch};
 
-/// Starts the engine runtime and returns the UI-side telemetry receiver.
+/// Starts the engine runtime and drives it until a Shutdown command (or the
+/// command channel closing).
 ///
-/// `commands` is the UI-side sender's counterpart; the runtime owns it. The
-/// ETW DPC monitor starts best-effort: without elevation (or when another
+/// `hub` is created by the caller before the engine thread starts so the UI
+/// can mount its window immediately; the runtime publishes into it.
+/// The ETW DPC monitor starts best-effort: without elevation (or when another
 /// tool owns the kernel logger) telemetry simply lacks DPC data.
 pub async fn run(
     mut config: Config,
     mut commands: mpsc::Receiver<Command>,
-) -> Result<watch::Receiver<TelemetrySnapshot>, crate::EngineError> {
-    let (hub, telemetry_rx) = TelemetryHub::new();
+    hub: TelemetryHub,
+) -> Result<(), crate::EngineError> {
     let mut manager = GameModeManager::new()?;
 
     // Exact refresh rate of the fastest active sink (Phase 3.1). The advisor
@@ -221,5 +223,5 @@ pub async fn run(
             }
         }
     }
-    Ok(telemetry_rx)
+    Ok(())
 }

@@ -122,14 +122,28 @@ function Show-ProcessWindows {
 
 $resolved = (Resolve-Path -LiteralPath $BinaryPath -ErrorAction Stop).Path
 $workingDirectory = Split-Path -Parent $resolved
-$stdoutLog = Join-Path $env:TEMP 'flux-fps-ui-smoke-out.log'
-$stderrLog = Join-Path $env:TEMP 'flux-fps-ui-smoke-err.log'
 
-$process = Start-Process -FilePath $resolved `
-    -WorkingDirectory $workingDirectory `
-    -RedirectStandardOutput $stdoutLog `
-    -RedirectStandardError $stderrLog `
-    -PassThru
+# Launch through the .NET Process API instead of Start-Process: the cmdlet
+# fails on Windows PowerShell 5.1 when the inherited environment block
+# contains both PATH and Path entries (typical for Git Bash sessions).
+$process = New-Object System.Diagnostics.Process
+$process.StartInfo.FileName = $resolved
+$process.StartInfo.WorkingDirectory = $workingDirectory
+$process.StartInfo.UseShellExecute = $false
+$process.StartInfo.CreateNoWindow = $true
+$process.StartInfo.RedirectStandardOutput = $true
+$process.StartInfo.RedirectStandardError = $true
+$stdoutLines = New-Object System.Collections.Generic.List[string]
+$stderrLines = New-Object System.Collections.Generic.List[string]
+Register-ObjectEvent -InputObject $process -EventName OutputDataReceived -Action {
+    if ($EventArgs.Data) { $Event.MessageData.Add($EventArgs.Data) }
+} -MessageData $stdoutLines | Out-Null
+Register-ObjectEvent -InputObject $process -EventName ErrorDataReceived -Action {
+    if ($EventArgs.Data) { $Event.MessageData.Add($EventArgs.Data) }
+} -MessageData $stderrLines | Out-Null
+[void]$process.Start()
+$process.BeginOutputReadLine()
+$process.BeginErrorReadLine()
 Write-Output "Started $resolved (pid $($process.Id))"
 
 $windowHandle = [IntPtr]::Zero
@@ -172,7 +186,7 @@ finally {
         Stop-Process -Id $process.Id -Force -Confirm:$false -ErrorAction SilentlyContinue
     }
     Write-Output '--- app stdout ---'
-    Get-Content -LiteralPath $stdoutLog -ErrorAction SilentlyContinue
+    $stdoutLines | ForEach-Object { Write-Output $_ }
     Write-Output '--- app stderr ---'
-    Get-Content -LiteralPath $stderrLog -ErrorAction SilentlyContinue
+    $stderrLines | ForEach-Object { Write-Output $_ }
 }
