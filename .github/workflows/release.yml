@@ -40,10 +40,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          # MSI ProductVersion must be numeric (x.y.z[.w]); strip a prerelease
+          # suffix such as -beta.1 from the tag before passing it to WiX.
+          $msiVersion = ($version -split '-')[0]
+          if ($msiVersion -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') {
+            throw "Invalid MSI version derived from tag: $msiVersion"
+          }
           New-Item -ItemType Directory -Force dist | Out-Null
 
           ./wix-tool/wix.exe build ./installer/Product.wxs -arch x64 `
-            -d ProductVersion=$version `
+            -d ProductVersion=$msiVersion `
             -d ResidentExe=target/release/flux-fps.exe `
             -o ./dist/flux-fps.msi
           if (-not (Test-Path ./dist/flux-fps.msi)) { throw 'WiX did not produce an MSI' }
@@ -51,9 +57,12 @@ jobs:
           Compress-Archive -Path target/release/flux-fps-setup.exe -DestinationPath dist/flux-fps-setup.zip
           Compress-Archive -Path target/release/flux-fps-master.exe -DestinationPath dist/flux-fps-master.zip
 
-          # Refresh the winget manifests for this tag and expose the hash in
-          # the release notes. Signing is not configured yet (docs/SIGNING.md).
-          ./scripts/Update-WingetManifest.ps1 -MsiPath ./dist/flux-fps.msi -Version $version
+          # winget manifests describe a stable package only; refresh them for
+          # stable tags and expose the MSI hash in the release notes.
+          # Signing is not configured yet (docs/SIGNING.md).
+          if ($env:GITHUB_REF_NAME -notmatch '-') {
+            ./scripts/Update-WingetManifest.ps1 -MsiPath ./dist/flux-fps.msi -Version $msiVersion
+          }
           $hash = (Get-FileHash ./dist/flux-fps.msi -Algorithm SHA256).Hash.ToLowerInvariant()
           "MSI_SHA256=$hash" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -66,8 +75,14 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $tag = $env:GITHUB_REF_NAME
+          $prereleaseNote = ''
+          if ($tag -match '-') {
+            $prereleaseNote = 'This is a prerelease. Do not treat it as a stable v0.1.0 promotion.'
+          }
           $notes = @"
           flux-fps $tag
+
+          $prereleaseNote
 
           Assets:
           - flux-fps.msi - resident tray/Core Engine installer (WiX v4, registers the logon tasks)
@@ -76,8 +91,22 @@ jobs:
 
           MSI SHA256: $env:MSI_SHA256
 
-          Builds are unsigned until SignPath is configured (see docs/SIGNING.md);
-          SmartScreen will warn. Verify the hash above before running the MSI.
+          What changed: see docs/RELEASE_NOTES.md in the repository.
+
+          Tested: GitHub Actions format, check, clippy (-D warnings), unit tests,
+          locked workspace build, installer script/XML/manifest validation,
+          resident PE import-table audit and a WiX v4 MSI authoring build.
+
+          Known limitations: builds are unsigned until SignPath is configured
+          (SmartScreen will warn; verify the hash above first). No real
+          Deadlock/CS2 A/B runs, 24 h soak, anti-cheat-system launch test or
+          MSI install/uninstall smoke test have been performed by the
+          maintainers. No kernel driver is bundled; kernel access is refused.
+
+          Owner should verify: install/uninstall and both logon tasks, the
+          baseline wizard, calibration profile in the settings panel, the
+          ABAB workflow, the 24 h soak and restore-test. See docs/VALIDATION.md
+          and docs/ANTI_CHEAT_CHECKLIST.md.
           "@
           $ghArgs = @('release', 'create', $tag, '--title', "flux-fps $tag", '--notes', $notes)
           if ($tag -match '-') { $ghArgs += '--prerelease' }
