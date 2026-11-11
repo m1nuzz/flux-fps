@@ -32,7 +32,13 @@ $forbiddenImports = @(
 
 $forbiddenStrings = @(
     'NtLoadDriver', 'ZwLoadDriver', 'CreateServiceW', 'OpenSCManagerW',
-    'WriteProcessMemory', 'CreateRemoteThread', '\??\'
+    'WriteProcessMemory', 'CreateRemoteThread'
+)
+
+# A bare NT object-manager prefix also appears in benign runtime/CRT data, so
+# only an NT-prefixed driver image path is treated as a real finding.
+$forbiddenPatterns = @(
+    '\\\?\?\\[^\x00]{0,256}\.sys'
 )
 
 function Get-U16 {
@@ -173,6 +179,9 @@ foreach ($name in $importNames) {
 $asciiImage = [System.Text.Encoding]::ASCII.GetString($bytes)
 foreach ($needle in $forbiddenStrings) {
     if ($asciiImage.Contains($needle)) { $findings += "forbidden string: $needle" }
+}
+foreach ($pattern in $forbiddenPatterns) {
+    if ([regex]::IsMatch($asciiImage, $pattern)) { $findings += "forbidden pattern: $pattern" }
 }
 
 Write-Output "Audited: $resolved"

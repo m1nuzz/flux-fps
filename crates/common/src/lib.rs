@@ -13,7 +13,7 @@ pub use config::{normalize_whitelist_entry, Config};
 pub use ipc::{
     pipe_path, HelperReply, HelperRequest, MAX_MESSAGE_BYTES, PIPE_NAME_PREFIX, PROTOCOL_VERSION,
 };
-pub use profile::Profile;
+pub use profile::{Profile, ProfileCore, Verdict, PROFILE_SCHEMA_VERSION};
 pub use telemetry::{CoreInfo, FrametimeStats, PacerAdvice, TelemetrySnapshot};
 
 /// Workspace-wide semantic version, baked into every binary.

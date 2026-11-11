@@ -49,6 +49,8 @@ const PUBLISH_INTERVAL_MS: u64 = 200;
 const MAX_FRAMETIME_US: f64 = 1_000_000.0;
 /// Upper bound on the ring (5 s at 240 fps is 1200 samples).
 const RING_CAPACITY: usize = 4096;
+/// Upper bound for a recorded calibration run (30 min at 240 fps).
+const MAX_RECORDED_SAMPLES: usize = 500_000;
 /// QPC clock client context for the WNODE header.
 const WNODE_CLIENT_CONTEXT_QPC: u32 = 1;
 
@@ -66,6 +68,10 @@ struct Shared {
     qpf: f64,
     /// Optional process filter (0 = all presenting processes).
     target_pid: AtomicU32,
+    /// Raw frametime recording for the portable calibration harness. Off by
+    /// default; the resident UI only consumes sliding-window aggregates.
+    recording: AtomicBool,
+    recorded_us: Mutex<Vec<f32>>,
 }
 
 impl Shared {
@@ -79,6 +85,8 @@ impl Shared {
             window_ticks: (qpf * f64::from(window_secs)) as i64,
             qpf,
             target_pid: AtomicU32::new(0),
+            recording: AtomicBool::new(false),
+            recorded_us: Mutex::new(Vec::new()),
         }
     }
 
@@ -103,6 +111,13 @@ impl Shared {
         state.ring.push_back((ts, delta_us as f32));
         while state.ring.len() > RING_CAPACITY {
             state.ring.pop_front();
+        }
+        if self.recording.load(Ordering::Relaxed) {
+            if let Ok(mut recorded) = self.recorded_us.lock() {
+                if recorded.len() < MAX_RECORDED_SAMPLES {
+                    recorded.push(delta_us as f32);
+                }
+            }
         }
     }
 
@@ -167,6 +182,26 @@ impl PresentMonitor {
     /// Restricts frametimes to one presenting process (0 = all).
     pub fn set_target_pid(&self, pid: u32) {
         self.shared.target_pid.store(pid, Ordering::Relaxed);
+    }
+
+    /// Clears the raw buffer and starts recording every Present delta.
+    /// Used by `flux-fps-master` to capture a full A/B run (not just the
+    /// 5 s sliding window published to the UI).
+    pub fn begin_recording(&self) {
+        if let Ok(mut recorded) = self.shared.recorded_us.lock() {
+            recorded.clear();
+        }
+        self.shared.recording.store(true, Ordering::Relaxed);
+    }
+
+    /// Stops recording and returns the captured frametimes in microseconds.
+    pub fn end_recording(&self) -> Vec<f32> {
+        self.shared.recording.store(false, Ordering::Relaxed);
+        self.shared
+            .recorded_us
+            .lock()
+            .map(|recorded| recorded.clone())
+            .unwrap_or_default()
     }
 
     /// Stops the ETW session and joins the worker threads.
