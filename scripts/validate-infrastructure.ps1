@@ -76,17 +76,17 @@ foreach ($manifest in $expectedManifests) {
     }
     $text = Get-Content -LiteralPath $path -Raw
     if ($text -notmatch 'PackageIdentifier:') {
-        [void]$problems.Add("$manifest: missing PackageIdentifier")
+        [void]$problems.Add("${manifest}: missing PackageIdentifier")
     }
     if ($text -notmatch 'PackageVersion:') {
-        [void]$problems.Add("$manifest: missing PackageVersion")
+        [void]$problems.Add("${manifest}: missing PackageVersion")
     }
     if ($text -notmatch 'ManifestVersion:') {
-        [void]$problems.Add("$manifest: missing ManifestVersion")
+        [void]$problems.Add("${manifest}: missing ManifestVersion")
     }
     if ($manifest -like '*.installer.yaml' -and
         ($text -notmatch 'InstallerUrl:' -or $text -notmatch 'InstallerSha256:')) {
-        [void]$problems.Add("$manifest: missing InstallerUrl or InstallerSha256")
+        [void]$problems.Add("${manifest}: missing InstallerUrl or InstallerSha256")
     }
 }
 Write-Output "Checked $($expectedManifests.Count) winget manifest(s)."
