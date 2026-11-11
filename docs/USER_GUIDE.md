@@ -91,6 +91,11 @@ the safe maximum refresh rate, selects E-core CPU Set ids for background work,
 and measures standby-purge responsiveness. It writes a schema-versioned
 `profile.toml` with `pacing_safety_factor` and an empty `last_verdict`.
 
+The resident app reads `%APPDATA%\flux-fps\profile.toml`. Save or copy the
+calibrated profile there, then use **Refresh calibration status** in the
+settings panel; it shows the last A/B verdict. A missing or incompatible
+profile is normal and falls back to default config values.
+
 After a GPU driver or application update, compare the old and new profiles:
 
 ```text

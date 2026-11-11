@@ -165,7 +165,14 @@ pub fn mann_whitney_u(a: &[f64], b: &[f64]) -> Option<MannWhitneyResult> {
     let mean_u = n1 * n2 / 2.0;
     let variance = (n1 * n2 / 12.0) * ((n + 1.0) - tie_term / (n * (n - 1.0)));
     if variance <= 0.0 {
-        return None;
+        // A fully tied (degenerate) pooled distribution has zero variance.
+        // There is no evidence of a difference, so report p = 1 instead of
+        // dropping the comparison and silently forcing a conservative value.
+        return Some(MannWhitneyResult {
+            u: u1,
+            z: 0.0,
+            p_two_sided: 1.0,
+        });
     }
     let z = (u1 - mean_u).abs().max(0.0) - 0.5;
     let z = z.max(0.0) / variance.sqrt();

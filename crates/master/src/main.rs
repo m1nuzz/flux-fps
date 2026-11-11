@@ -4,7 +4,6 @@
 //! anything and never starts a background service. Kernel access is refused
 //! by design (see the `guard` command).
 
-use common::Verdict;
 use flux_fps_master::{calibration, capture, guard, session, soak};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -76,14 +75,6 @@ where
 
 fn path_or(options: &[String], flag: &str, default: &str) -> PathBuf {
     PathBuf::from(flag_value(options, flag).unwrap_or_else(|| default.to_string()))
-}
-
-fn verdict_label(verdict: Verdict) -> &'static str {
-    match verdict {
-        Verdict::Apply => "APPLY",
-        Verdict::KeepInsignificant => "KEEP-INSIGNIFICANT",
-        Verdict::Revert => "REVERT",
-    }
 }
 
 fn cmd_calibrate(options: &[String]) -> Result<(), String> {
@@ -184,7 +175,7 @@ fn cmd_analyze(options: &[String]) -> Result<(), String> {
     }
     println!(
         "VERDICT: {} - {}",
-        verdict_label(decision.verdict),
+        decision.verdict.label(),
         decision.reason
     );
     Ok(())

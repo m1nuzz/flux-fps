@@ -18,7 +18,8 @@
 //! or engine thread is created.
 
 use common::{
-    normalize_whitelist_entry, Command, Config, HelperReply, HelperRequest, TelemetrySnapshot,
+    normalize_whitelist_entry, Command, Config, HelperReply, HelperRequest, Profile,
+    TelemetrySnapshot,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -85,6 +86,22 @@ pub enum Message {
     CheckHelper,
     /// Result of the helper probe, displayed in the settings panel.
     HelperStatus(String),
+    /// Re-read the calibration profile written by flux-fps-master.
+    RefreshProfile,
+}
+
+/// Reads the master tool's profile for the settings panel. A missing or
+/// incompatible file is a normal state, not an error: the app ships with
+/// defaults and calibration is optional.
+fn profile_summary() -> String {
+    let Some(path) = Profile::default_path() else {
+        return "Calibration profile unavailable (APPDATA is not set).".into();
+    };
+    Profile::load(&path)
+        .map(|profile| profile.verdict_summary())
+        .unwrap_or_else(|| {
+            "No calibration profile. Run flux-fps-master calibrate to create one.".into()
+        })
 }
 
 /// Local editable copy of the configuration plus transient UI state.
@@ -101,6 +118,8 @@ pub struct FluxFpsApp {
     config_path: Arc<PathBuf>,
     latest: TelemetrySnapshot,
     settings: SettingsDraft,
+    /// Last known calibration / A/B verdict, refreshed on demand.
+    profile_summary: String,
 }
 
 impl FluxFpsApp {
@@ -231,6 +250,10 @@ impl FluxFpsApp {
             Button::new()
                 .on_click(context.sender().message(Message::CheckHelper))
                 .content("Check helper connection"),
+            TextBlock::new().text(self.profile_summary.clone()),
+            Button::new()
+                .on_click(context.sender().message(Message::RefreshProfile))
+                .content("Refresh calibration status"),
             TextBlock::new().text(self.settings.status.clone()),
         ));
 
@@ -281,6 +304,7 @@ impl Component for FluxFpsApp {
                 whitelist_input: String::new(),
                 status: "Changes apply immediately; Save writes config.toml.".into(),
             },
+            profile_summary: profile_summary(),
         }
     }
 
@@ -396,6 +420,7 @@ impl Component for FluxFpsApp {
                 });
             }
             Message::HelperStatus(status) => self.settings.status = status,
+            Message::RefreshProfile => self.profile_summary = profile_summary(),
         }
     }
 

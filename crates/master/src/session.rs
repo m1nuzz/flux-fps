@@ -277,11 +277,7 @@ fn civil_from_days(days: i64) -> (i64, i64, i64) {
 }
 
 fn verdict_label(verdict: common::Verdict) -> &'static str {
-    match verdict {
-        common::Verdict::Apply => "APPLY",
-        common::Verdict::KeepInsignificant => "KEEP-INSIGNIFICANT",
-        common::Verdict::Revert => "REVERT",
-    }
+    verdict.label()
 }
 
 /// Writes the Markdown report and the combined raw frametime CSV.
