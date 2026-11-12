@@ -58,7 +58,11 @@ fn capture_etw(options: &CaptureOptions<'_>) -> Result<Vec<f32>, String> {
     drop(monitor);
     let frames_ms: Vec<f32> = deltas_us.iter().map(|us| us / 1000.0).collect();
     if frames_ms.is_empty() {
-        return Err("ETW session produced no Present events".into());
+        return Err(
+            "ETW session produced no Present events (check --pid, elevation and that a \
+             process is actively presenting)"
+                .into(),
+        );
     }
     Ok(frames_ms)
 }

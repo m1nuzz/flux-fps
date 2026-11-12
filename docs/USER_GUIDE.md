@@ -119,10 +119,14 @@ runs (5 pairs, alternating baseline/variant, at least 60 s each).
 Capture each run while the game or its built-in benchmark is running:
 
 ```text
-flux-fps-master.exe capture --seconds 90 --out bench/run-01.csv
+flux-fps-master.exe capture --seconds 90 --pid <game pid> --out bench/run-01.csv
 ```
 
-`--pid <n>` restricts the ETW Present consumer to one process. If the ETW
+`--pid <n>` restricts the ETW Present consumer to one process. **Always pass
+the game's pid** for A/B runs: without a filter, `Present_Info` events from
+every presenting process on the desktop (video players, browsers, the shell)
+are merged into one frametime stream and the 1% low becomes meaningless. The
+pid comes from the presenting process itself, not from `dwm.exe`. If the ETW
 session cannot start, supply PresentMon explicitly:
 
 ```text
@@ -198,7 +202,7 @@ master tool never loads one. See [`../SECURITY.md`](../SECURITY.md).
 |---|---|
 | Settings panel says helper unavailable | `flux-fps-setup.exe --status`; re-run `--apply` elevated; check the `FluxFps Helper` task in Task Scheduler. |
 | Purge reports no gain | Helper elevation is missing, or the system has no priority-0 standby pages to purge. |
-| `capture` returns no Present events | The ETW session needs elevation and a presenting process; use `--presentmon` + `--process` as fallback. Keep HAGS fixed. |
+| `capture` returns no Present events | Run elevated with a process actively presenting frames. Use `--pid <game pid>` to isolate one game; without it frametimes from every presenting process (desktop, player, browser) are mixed. DWM's pid is not the presenting pid for `Present_Info`. As a last resort use `--presentmon` + `--process`. Keep HAGS fixed. |
 | `analyze` rejects a session | Warmup flag, at least 10 runs, exact ABAB alternation, and >= 60 s per run are all mandatory. |
 | Tray does not start at logon | `config.auto_start` must be true and `--apply` must be re-run elevated. |
 | SmartScreen warning | Build is unsigned; verify SHA256 before proceeding. |

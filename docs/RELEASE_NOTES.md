@@ -14,7 +14,9 @@ owner. A stable `v0.1.0` requires the manual checklist in
   Task Scheduler logon task, with a per-user Named Pipe ACL, idempotent verbs
   and a crash-safe isolation journal.
 - ETW `Microsoft-Windows-DxgKrnl` Present frametime monitor with bounded raw
-  recording for full A/B runs; PresentMon as an explicit fallback.
+  recording for full A/B runs; PresentMon as an explicit fallback. Uses the
+  registered manifest provider GUID, the Windows 11 `Present` keyword and the
+  `Present_Info` event (184), verified locally with HAGS enabled.
 - ABAB harness: Welch's t-test, Mann-Whitney U, 10k-resample bootstrap 95% CI,
   `APPLY` / `KEEP-INSIGNIFICANT` / `REVERT` verdict, Markdown report and
   combined raw frametime CSV.

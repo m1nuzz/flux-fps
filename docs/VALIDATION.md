@@ -139,6 +139,8 @@ and asserts that it satisfies the ABAB rules.
 | Infrastructure | script parsing, XML parsing, winget manifests |
 | Import-table audit | no driver-loading / injection imports in `flux-fps.exe` |
 | WiX v4 MSI | authoring validation build produces an MSI |
+| Minimal reactor window smoke | `scripts/smoke-ui.ps1` on the `smoke_window` example: visible window handle |
+| Tray UI window smoke | `scripts/smoke-ui.ps1` on `flux-fps.exe`: window visible and alive after 5 s |
 
 ### Owner-side manual checklist (requires real hardware)
 
@@ -157,6 +159,14 @@ and asserts that it satisfies the ABAB rules.
 harness, report format and checklist are implemented; the runs above must be
 executed by the machine owner and attached to the release notes.
 
+The built-in ETW capture path itself was verified locally on the owner's
+Windows 11 machine with HAGS enabled: `flux-fps-master capture --seconds 6`
+recorded 1915 `Present_Info` deltas with no PID filter, and a filtered
+`--pid` run recorded 540 deltas in 5 s from one presenting process. These are
+capture-mechanism checks, **not** A/B benchmark results. Without `--pid`, all
+presenting processes on the desktop contribute to the frametime stream, so
+A/B runs must always pass the game's pid.
+
 ### CI run log
 
 Verified green runs of the full pipeline (including the import-table audit
@@ -169,6 +179,8 @@ and the WiX v4 MSI authoring build where present):
 | 3 | 43073774823 | 411e7be | success (full pipeline including MSI authoring) |
 | 4 | 43074436389 | 3caaec2 | success |
 | 5 | 43076652323 | b88ed16 | success |
+| 6 | 43083583293 | 32ad247 | success (UI window deadlock fix, both smoke gates green) |
+| 7 | 43123469527 | 3ca04d2 | success (two-column UI redesign, both smoke gates green) |
 
 The first two predate the MSI authoring gate; the third is the first run of
 the complete Phase 5/6 pipeline. In addition, the release pipeline was

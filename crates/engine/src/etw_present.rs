@@ -3,9 +3,18 @@
 //!
 //! This is a *separate* session from the NT Kernel Logger DPC monitor, so both
 //! can run side by side. DxgKrnl is a manifest provider: we enable it with
-//! `EnableTraceEx2` using the Present keyword, then consume event id 67. Every
-//! Present yields one timestamp; the delta between consecutive timestamps is
-//! the frametime. No game hooks, no injection, no process handles opened.
+//! `EnableTraceEx2` using the Windows 11 "Present" keyword and consume the
+//! `Present_Info` event (id 184), which fires once at the end of every kernel
+//! present. Every Present yields one timestamp; the delta between consecutive
+//! timestamps is the frametime. No game hooks, no injection, no process
+//! handles opened.
+//!
+//! The GUID / keyword / event id were taken from the provider manifest
+//! (`wevtutil gp Microsoft-Windows-DxgKrnl /ge:true /gm:true`, also
+//! `logman query providers`) and cross-checked against PresentMon's
+//! `Microsoft_Windows_DxgKrnl.h`. The older 0x10 keyword is "Patch" and event
+//! id 67 is "PerformanceWarning" on Windows 11, so the previous constants
+//! silently enabled a provider that emitted no presents at all.
 //!
 //! Layout mirrors `etw_dpc`: one OS thread owns the trace session
 //! (`ProcessTrace` blocks), a second thread aggregates a 5 s sliding window and
@@ -32,15 +41,22 @@ use windows_sys::Win32::System::Diagnostics::Etw::{
 };
 use windows_sys::Win32::System::Performance::QueryPerformanceFrequency;
 
-/// Microsoft-Windows-DxgKrnl provider GUID.
-const DXGKRNL_GUID: GUID = GUID::from_u128(0x802ec45a_1e99_4b83_9966_90a1ed4092e4);
+/// Microsoft-Windows-DxgKrnl manifest provider GUID (Windows 10/11).
+/// This is the registered provider reported by `logman query providers`;
+/// `...9966-90a1ed4092e4` is a different, legacy DxgKrnl GUID.
+const DXGKRNL_GUID: GUID = GUID::from_u128(0x802ec45a_1e99_4b83_9920_87c98277ba9d);
 /// Arbitrary but stable GUID identifying our private logger session.
 const SESSION_GUID: GUID = GUID::from_u128(0x9c3f8e17_2ab4_4d65_b0c1_7e5a3f18d902);
 const SESSION_NAME: &str = "flux-fps-present";
-/// DxgKrnl "Present" event id (manifest-based provider).
-const PRESENT_EVENT_ID: u16 = 67;
-/// DxgKrnl "Present" keyword.
-const PRESENT_KEYWORD: u64 = 0x0000_0000_0000_0010;
+/// `Present_Info` (0x00b8 = 184): one event at the end of each kernel present.
+const PRESENT_EVENT_ID: u16 = 0x00b8;
+/// Windows 11 "Present" keyword. `Present_Info` carries
+/// 0x4000_0000_0800_0001 (Performance | Present | Base), so matching the
+/// Present bit enables it while keeping unrelated DxgKrnl traffic out.
+const PRESENT_KEYWORD: u64 = 0x0000_0000_0800_0000;
+/// Keyword mask of `Present_Info` itself, used by the regression test below.
+#[cfg(test)]
+const PRESENT_INFO_KEYWORD: u64 = 0x4000_0000_0800_0001;
 /// Sliding window length, seconds (RF 8.3).
 const WINDOW_SECS: f32 = 5.0;
 const PUBLISH_INTERVAL_MS: u64 = 200;
@@ -527,6 +543,24 @@ mod tests {
         shared.push(1_020_000, 42);
         shared.push(1_030_000, 42);
         assert_eq!(shared.stats().samples, 1);
+    }
+
+    #[test]
+    fn present_constants_match_the_dxgkrnl_manifest() {
+        // Verified on Windows 11 with `wevtutil gp Microsoft-Windows-DxgKrnl
+        // /ge:true /gm:true`: event 184 has keywords 0x4000000008000001.
+        assert_eq!(PRESENT_EVENT_ID, 184);
+        assert_eq!(DXGKRNL_GUID.data1, 0x802e_c45a);
+        assert_eq!(DXGKRNL_GUID.data2, 0x1e99);
+        assert_eq!(DXGKRNL_GUID.data3, 0x4b83);
+        assert_eq!(
+            DXGKRNL_GUID.data4,
+            [0x99, 0x20, 0x87, 0xc9, 0x82, 0x77, 0xba, 0x9d]
+        );
+        // The enabled keyword must actually match the event's own keyword.
+        assert_ne!(PRESENT_INFO_KEYWORD & PRESENT_KEYWORD, 0);
+        // 0x10 is the "Patch" keyword, not "Present"; guard against a typo.
+        assert_ne!(PRESENT_KEYWORD, 0x10);
     }
 
     #[test]
